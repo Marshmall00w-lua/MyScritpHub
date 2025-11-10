@@ -235,7 +235,7 @@ SupportedGamesTab:Button({
 -- 🏠 Main Tab
 local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "Gear",
+    Icon = "Cog",
 })
 
 MainTab:Section({
@@ -452,9 +452,14 @@ MainTab:Toggle({
     end
 })
 
+local MainTab:Section({
+    Icon = "",
+    Title = "Auto Tame",
+
 -- ⚙️ Core Services
-local Players = game:GetService("Players")
+})Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
 -- 🪶 Auto-Tame Function (resize both SuccessArea & TimingBar)
@@ -468,44 +473,6 @@ local function autoTameResize()
     successArea.Position = UDim2.new(0.5, 0, 0.5, 0)
     timingBar.Size = successArea.Size
     timingBar.Position = successArea.Position
-end
-
--- 🎯 Flute Auto Collector
-local function getFlute()
-    return player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("Old Taming Flute")
-end
-
-local function getFluteFromWorkspace()
-    local items = workspace:FindFirstChild("Items")
-    if not items then return nil end
-
-    local itemFlute = items:FindFirstChild("Old Taming Flute")
-    if not itemFlute then
-        for _, child in ipairs(items:GetChildren()) do
-            if child:FindFirstChild("Main") then
-                itemFlute = child.Main
-                break
-            end
-        end
-    end
-    return itemFlute
-end
-
-local function startFluteCollector()
-    task.spawn(function()
-        while _G.AutoFluteCollect do
-            local flute = getFlute()
-            if not flute then
-                local itemFlute = getFluteFromWorkspace()
-                if itemFlute then
-                    pcall(function()
-                        ReplicatedStorage.RemoteEvents.RequestHotbarItem:InvokeServer(itemFlute)
-                    end)
-                end
-            end
-            task.wait(1)
-        end
-    end)
 end
 
 -- 🧭 UI Elements (WindUI / Fluent Style)
@@ -529,14 +496,49 @@ local Toggle = MainTab:Toggle({
     end
 })
 
+-- 🔘 Add button to MainTab
 local Button = MainTab:Button({
-    Title = "Auto Pickup Flute",
-    Desc = "Continuously picks up Old Taming Flute if dropped",
-    Locked = false,
+    Title = "Pickup Nearest Flute",
+    Desc = "Pick up the nearest Old Taming Flute once",
     Callback = function()
-        _G.AutoFluteCollect = not _G.AutoFluteCollect
-        if _G.AutoFluteCollect then
-            startFluteCollector()
+        local nearest, shortestDist = nil, math.huge
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            WindUI:Notify({
+                Title = "❌ Error",
+                Content = "Your character is not loaded!",
+                Duration = 3
+            })
+            return
+        end
+
+        -- 🔍 Find nearest flute
+        for _, item in ipairs(Workspace:WaitForChild("Items"):GetChildren()) do
+            local main = item:FindFirstChild("Main") or item
+            if main and main.Name == "Old Taming Flute" then
+                local dist = (main.Position - hrp.Position).Magnitude
+                if dist < shortestDist then
+                    nearest, shortestDist = main, dist
+                end
+            end
+        end
+
+        -- 🎺 Pickup logic
+        if nearest then
+            pcall(function()
+                ReplicatedStorage.RemoteEvents.RequestHotbarItem:InvokeServer(nearest)
+            end)
+            WindUI:Notify({
+                Title = "🎶 Flute Collected",
+                Content = "Picked up nearest Old Taming Flute successfully!",
+                Duration = 3
+            })
+        else
+            WindUI:Notify({
+                Title = "😕 Not Found",
+                Content = "No Old Taming Flute found nearby.",
+                Duration = 3
+            })
         end
     end
 })
