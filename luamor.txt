@@ -434,7 +434,7 @@ MainTab:Slider({
     Step = 1,
     Value = {
         Min = 10,
-        Max = 250,
+        Max = 100,
         Default = _G.Settings.Main["Kill Aura Range"],
     },
     Callback = function(value)
@@ -450,80 +450,6 @@ MainTab:Toggle({
     Callback = function(state)
         showRange = state
     end
-})
-
-local MiscTab = Window:Tab({
-    Title = "Misc",
-    Icon = "bird", -- optional
-    Locked = false,
-})
-
-MiscTab:Section({
-    Title = "Themes",
-    Desc = "Select Your Themes.",
-    Color = "Blue"
-})
-
-Tab:Divider()
-
--- Stun Enemies toggle (separate from Kill Aura)
-_G.Settings.Main["Stun Enemies"] = false
-
-MainTab:Toggle({
-    Title = "Stun Enemies",
-    Desc = "Toggle to stun enemies using Old Taming Flute",
-    Default = false,
-    Callback = function(state)
-        _G.Settings.Main["Stun Enemies"] = state
-        print("Stun Enemies toggled:", state)
-    end
-})
-
--- Separate Stun Loop
-task.spawn(function()
-    while task.wait(0.3) do
-        if _G.Settings.Main["Stun Enemies"] then
-            local character = player.Character or player.CharacterAdded:Wait()
-            local hrp = character:FindFirstChild("HumanoidRootPart")
-            if not hrp then continue end
-
-            -- Ensure player has the Old Taming Flute
-            local flute = player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("Old Taming Flute")
-            if not flute then
-                local itemFlute = workspace:FindFirstChild("Items") and workspace.Items:FindFirstChild("Old Taming Flute")
-                if itemFlute and itemFlute:IsA("BasePart") then
-                    hrp.CFrame = itemFlute.CFrame + Vector3.new(0,3,0) -- teleport above
-                    task.wait(0.1)
-                    -- Simulate touch to pick up
-                    if itemFlute:FindFirstChild("TouchInterest") then
-                        firetouchinterest(itemFlute, hrp, 0)
-                        firetouchinterest(itemFlute, hrp, 1)
-                        task.wait(0.2)
-                    end
-                    flute = player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("Old Taming Flute")
-                end
-                if not flute then continue end
-            end
-
-            local stunRange = 50 -- you can also make this a slider if you want
-
-            for _, enemy in ipairs(Workspace.Characters:GetChildren()) do
-                if enemy:IsA("Model") and enemy ~= character then
-                    local enemyHRP = enemy:FindFirstChild("HumanoidRootPart")
-                    if enemyHRP and (enemyHRP.Position - hrp.Position).Magnitude <= stunRange then
-                        pcall(function()
-                            ReplicatedStorage.RemoteEvents.RequestTame_Neutral:FireServer(enemy, flute)
-                        end)
-                    end
-                end
-            end
-        end
-    end
-end)
-
-MainTab:Section({
-    Icon = "Pet",
-    Title = "Auto Tame",
 })
 
 -- ⚙️ Core Services
@@ -613,6 +539,18 @@ local Button = MainTab:Button({
             startFluteCollector()
         end
     end
+})
+
+local MiscTab = Window:Tab({
+    Title = "Misc",
+    Icon = "bird", -- optional
+    Locked = false,
+})
+
+MiscTab:Section({
+    Title = "Themes",
+    Desc = "Select Your Themes.",
+    Color = "Blue"
 })
 
 -- 🎨 Theme Dropdown
