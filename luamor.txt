@@ -455,8 +455,6 @@ MainTab:Section({
     Icon = "gear",
     Title = "Auto Tame",
 })
-when I added this. it won't load
-
 
 -- ⚙️ Core Services
 Players = game:GetService("Players")
@@ -498,51 +496,66 @@ local Toggle = MainTab:Toggle({
     end
 })
 
--- 🔘 Add button to MainTab
-local Button = MainTab:Button({
-    Title = "Pickup Nearest Flute",
-    Desc = "Pick up the nearest Old Taming Flute once",
-    Callback = function()
-        local nearest, shortestDist = nil, math.huge
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            WindUI:Notify({
-                Title = "❌ Error",
-                Content = "Your character is not loaded!",
-                Duration = 3
-            })
-            return
-        end
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
 
-        -- 🔍 Find nearest flute
-        for _, item in ipairs(Workspace:WaitForChild("Items"):GetChildren()) do
-            local main = item:FindFirstChild("Main") or item
-            if main and main.Name == "Old Taming Flute" then
-                local dist = (main.Position - hrp.Position).Magnitude
-                if dist < shortestDist then
-                    nearest, shortestDist = main, dist
-                end
+-- Helper: get Old Taming Flute from inventory
+local function getFlute()
+    return player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("Old Taming Flute")
+end
+
+-- Helper: get Old Taming Flute from workspace
+local function getFluteFromWorkspace()
+    local itemFlute = workspace:FindFirstChild("Items") and workspace.Items:FindFirstChild("Old Taming Flute")
+    if not itemFlute then
+        for _, child in ipairs(workspace.Items:GetChildren()) do
+            if child:FindFirstChild("Main") then
+                itemFlute = child.Main
+                break
             end
         end
-
-        -- 🎺 Pickup logic
-        if nearest then
-            pcall(function()
-                ReplicatedStorage.RemoteEvents.RequestHotbarItem:InvokeServer(nearest)
-            end)
-            WindUI:Notify({
-                Title = "🎶 Flute Collected",
-                Content = "Picked up nearest Old Taming Flute successfully!",
-                Duration = 3
-            })
-        else
-            WindUI:Notify({
-                Title = "😕 Not Found",
-                Content = "No Old Taming Flute found nearby.",
-                Duration = 3
-            })
-        end
     end
+    return itemFlute
+end
+
+-- Function to grab the flute
+local function grabFlute()
+    local flute = getFlute()
+    if not flute then
+        local itemFlute = getFluteFromWorkspace()
+        if itemFlute then
+            pcall(function()
+                ReplicatedStorage.RemoteEvents.RequestHotbarItem:InvokeServer(itemFlute)
+            end)
+        else
+            -- WindUI notification when no flute found
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Grab Flute",
+                    Content = "No Old Taming Flute detected in workspace!",
+                    Duration = 3,
+                    Icon = "bird",
+                })
+            end)
+        end
+    else
+        -- Already have flute notification
+        pcall(function()
+            WindUI:Notify({
+                Title = "Grab Flute",
+                Content = "You already have the Old Taming Flute!",
+                Duration = 2,
+                Icon = "check",
+            })
+        end)
+    end
+end
+
+-- MainTab button to manually grab flute
+MainTab:Button({
+    Title = "Grab Flute Now",
+    Callback = grabFlute
 })
 
 local MiscTab = Window:Tab({
