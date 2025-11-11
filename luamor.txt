@@ -268,22 +268,6 @@ MainTab:Button({
     end
 })
 
--- Disable God Mode Button
-MainTab:Button({
-    Title = "Disable God Mode",
-    Desc = "Remove invincibility",
-    Callback = function()
-        -- Reset damage back to normal (0)
-        DamageEvent:FireServer(0)
-        WindUI:Notify({
-            Title = "God Mode Disabled",
-            Content = "You're now mortal again",
-            Duration = 3,
-            Icon = "shield-off",
-        })
-    end
-})
-
 MainTab:Section({
     Icon = "shield",
     Title = "Kill Aura",
@@ -934,7 +918,7 @@ BringTab:Button({
         elseif BringTarget == "Workbench" then
             targetPos = Vector3.new(20.9532776, 3.18912888, -5.23712301)
         elseif BringTarget == "Campfire" then
-            targetPos = Vector3.new(4.95910645e-05, 1.49994469, -7.62939453e-06)
+            targetPos = Vector3.new(4.95910645e-05, 2.5, -7.62939453e-06)
         end
 
         if not targetPos then
