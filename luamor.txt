@@ -237,7 +237,7 @@ local MainTab = Window:Tab({
     Icon = "map",
 })
 
-local Section = BringTab:Section({ 
+local Section = MainTab:Section({ 
     Title = "God mode",
     Icon = "cog",
 })
