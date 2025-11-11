@@ -237,6 +237,22 @@ local MainTab = Window:Tab({
     Icon = "Map",
 })
 
+local DamageEvent = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("DamagePlayer")
+
+MainTab:Button({
+    Title = "God Mode",
+    Desc = "Become unkillable instantly",
+    Callback = function()
+        DamageEvent:FireServer(-math.huge)
+        WindUI:Notify({
+            Title = "God Mode",
+            Content = "You're now invincible!",
+            Duration = 3,
+            Icon = "shield",
+        })
+    end
+})
+
 MainTab:Section({
     Icon = "Shield",
     Title = "Kill Aura",
@@ -557,6 +573,79 @@ MainTab:Button({
     Title = "Grab Flute Now",
     Callback = grabFlute
 })
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local healEvent = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("RequestConsumeItem")
+
+-- 🔧 Variables
+local autoHealEnabled = false
+local healThreshold = 50
+local cooldown = false
+
+-- 🩹 AUTO HEAL SECTION
+local HealSection = MainTab:Section({
+    Title = "Auto Heal",
+})
+
+HealSection:Toggle({
+    Title = "Auto Heal",
+    Default = false,
+    Callback = function(state)
+        autoHealEnabled = state
+    end
+})
+
+local Slider = HealSection:Slider({
+    Title = "Heal When Below",
+    Desc = "Auto heal when HP drops below this value",
+    Step = 1,
+    Value = {
+        Min = 20,
+        Max = 120,
+        Default = 70,
+    },
+    Callback = function(value)
+        print("Slider value:", value)
+    end
+})
+
+-- 🔁 Heal loop
+task.spawn(function()
+    while task.wait(0.5) do
+        if autoHealEnabled and not cooldown then
+            local char = player.Character
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+
+            if humanoid and humanoid.Health > 0 and humanoid.Health <= healThreshold then
+                local inv = player:FindFirstChild("Inventory")
+                local bandage = inv and inv:FindFirstChild("Bandage")
+
+                if bandage then
+                    healEvent:InvokeServer(bandage)
+                    WindUI:Notify({
+                        Title = "Auto Heal",
+                        Content = "Used Bandage at " .. math.floor(humanoid.Health) .. " HP!",
+                        Duration = 3,
+                        Icon = "heart",
+                    })
+                    cooldown = true
+                    task.wait(5)
+                    cooldown = false
+                else
+                    WindUI:Notify({
+                        Title = "Auto Heal",
+                        Content = "❌ No Bandage found in inventory!",
+                        Duration = 3,
+                        Icon = "x",
+                    })
+                    task.wait(3)
+                end
+            end
+        end
+    end
+end)
 
 local MiscTab = Window:Tab({
     Title = "Misc",
