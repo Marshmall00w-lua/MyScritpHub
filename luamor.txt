@@ -237,6 +237,11 @@ local MainTab = Window:Tab({
     Icon = "map",
 })
 
+local Section = BringTab:Section({ 
+    Title = "God mode",
+    Icon = "cog",
+})
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Wait until RemoteEvents folder exists
@@ -264,6 +269,22 @@ MainTab:Button({
             Content = "You're now invincible!",
             Duration = 3,
             Icon = "shield",
+        })
+    end
+})
+
+-- Disable God Mode Button
+MainTab:Button({
+    Title = "Disable God Mode",
+    Desc = "Remove invincibility",
+    Callback = function()
+        -- Reset damage back to normal (0)
+        DamageEvent:FireServer(0)
+        WindUI:Notify({
+            Title = "God Mode Disabled",
+            Content = "You're now mortal again",
+            Duration = 3,
+            Icon = "shield-off",
         })
     end
 })
