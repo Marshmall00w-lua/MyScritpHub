@@ -234,7 +234,7 @@ SupportedGamesTab:Button({
 -- 🏠 Main Tab
 local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "Map",
+    Icon = "map",
 })
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -269,7 +269,7 @@ MainTab:Button({
 })
 
 MainTab:Section({
-    Icon = "Shield",
+    Icon = "shield",
     Title = "Kill Aura",
 })
 
@@ -599,12 +599,12 @@ local autoHealEnabled = false
 local healThreshold = 50
 local cooldown = false
 
--- 🩹 AUTO HEAL SECTION
-local HealSection = MainTab:Section({
+MainTab:Section({
+    Icon = "shield",
     Title = "Auto Heal",
 })
 
-HealSection:Toggle({
+MainTab:Toggle({
     Title = "Auto Heal",
     Default = false,
     Callback = function(state)
@@ -612,7 +612,7 @@ HealSection:Toggle({
     end
 })
 
-local Slider = HealSection:Slider({
+local Slider = MainTab:Slider({
     Title = "Heal When Below",
     Desc = "Auto heal when HP drops below this value",
     Step = 1,
@@ -664,7 +664,7 @@ end)
 
 local MiscTab = Window:Tab({
     Title = "Misc",
-    Icon = "Compass", -- optional
+    Icon = "compass", -- optional
     Locked = false,
 })
 
