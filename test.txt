@@ -236,6 +236,11 @@ local BringTab = Window:Tab({
     Icon = "package",
 })
 
+local Section = BringTab:Section({ 
+    Title = "settings",
+    Icon = "cog",
+})
+
 -- Target selection
 local BringTarget = "You"
 
@@ -546,6 +551,148 @@ BringTab:Button({
                 WindUI:Notify({
                     Title = "Fuel Brought",
                     Content = "Successfully brought " .. broughtCountTotal .. " fuel item(s) to " .. BringTarget,
+                    Duration = 4,
+                    Icon = "bird",
+                })
+            end)
+        end
+    end
+})
+
+local Section = BringTab:Section({ 
+    Title = "Food & healing",
+    Icon = "apple",
+})
+
+-- Selected food table
+local SelectedFood = {}
+
+-- Full food & healing list with "All" option
+local FoodList = {
+    "All", -- special option to select everything
+    "Carrot", "Berry", "Morsel", "Steak", "Ribs",
+    "Cooked Morsel", "Cooked Steak", "Cooked Ribs",
+    "Bandage", "Medkit", "Chili"
+}
+
+-- Stop flag
+local StopBring = false
+
+-- Function to get target CFrame
+local function GetTargetCFrame()
+    if BringTarget == "You" then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            return char.HumanoidRootPart.CFrame
+        end
+    elseif BringTarget == "Workbench" then
+        return CFrame.new(20.9532776, 3.18912888, -5.23712301, -1, 0, 0, 0, 1, 0, 0, 0, -1)
+    elseif BringTarget == "Campfire" then
+        return CFrame.new(4.95910645e-05, 1.49994469, -7.62939453e-06, -1.1920929e-07, 1.00000012, 0, 1.00000012, -1.1920929e-07, 0, 0, 0, -1.00000024)
+    end
+end
+
+-- Food dropdown
+BringTab:Dropdown({
+    Title = "Select Food & Healing",
+    Values = FoodList,
+    Multi = true,  -- Enable multi-selection
+    Value = {},    -- start empty
+    Callback = function(selected)
+        if table.find(selected, "All") then
+            -- If "All" is selected, use all items except "All"
+            SelectedFood = {}
+            for _, food in ipairs(FoodList) do
+                if food ~= "All" then
+                    table.insert(SelectedFood, food)
+                end
+            end
+        else
+            SelectedFood = selected
+        end
+        print("🎯 Selected Food:", table.concat(SelectedFood, ", "))
+    end
+})
+
+-- Bring Food button
+BringTab:Button({
+    Title = "Bring Selected Food & Healing",
+    Callback = function()
+        local itemsFolder = workspace:FindFirstChild("Items")
+        local player = game.Players.LocalPlayer
+        local targetPos
+
+        -- Determine target position
+        if BringTarget == "You" then
+            local char = player.Character
+            targetPos = char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position
+        elseif BringTarget == "Workbench" then
+            targetPos = Vector3.new(20.9532776, 3.18912888, -5.23712301)
+        elseif BringTarget == "Campfire" then
+            targetPos = Vector3.new(4.95910645e-05, 1.49994469, -7.62939453e-06)
+        end
+
+        if not targetPos then
+            warn("⚠️ Target not found")
+            return
+        end
+
+        local notFoundFood = {} -- store missing items
+        local broughtCountTotal = 0
+
+        for _, foodName in ipairs(SelectedFood) do
+            local broughtCount = 0
+            local maxBring = MaxPerItem or 10
+
+            for _, item in ipairs(itemsFolder:GetChildren()) do
+                if item.Name == foodName and item:IsA("Model") then
+                    local base = item:FindFirstChildWhichIsA("BasePart")
+                    if base then
+                        if not item.PrimaryPart then
+                            item.PrimaryPart = base
+                        end
+
+                        -- Teleport item
+                        game.ReplicatedStorage.RemoteEvents.RequestStartDraggingItem:FireServer(item)
+                        item:SetPrimaryPartCFrame(CFrame.new(targetPos + Vector3.new(0,3,0)))
+                        game.ReplicatedStorage.RemoteEvents.StopDraggingItem:FireServer(item)
+
+                        broughtCount = broughtCount + 1
+                        broughtCountTotal = broughtCountTotal + 1
+                        task.wait(0.05)
+
+                        if broughtCount >= maxBring then
+                            break
+                        end
+                    end
+                end
+            end
+
+            if broughtCount == 0 then
+                table.insert(notFoundFood, foodName)
+            else
+                print("✅ Brought", broughtCount, foodName, "to", BringTarget)
+            end
+        end
+
+        -- Notify missing food
+        if WindUI and #notFoundFood > 0 then
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Could not find food",
+                    Content = table.concat(notFoundFood, ", "),
+                    Duration = 5,
+                    Icon = "bird",
+                })
+            end)
+        end
+
+        -- Notify successful brings
+        if WindUI and broughtCountTotal > 0 then
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Food Brought",
+                    Content = "Successfully brought " .. broughtCountTotal .. " item(s) to " .. BringTarget,
                     Duration = 4,
                     Icon = "bird",
                 })
