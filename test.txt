@@ -413,6 +413,11 @@ BringTab:Button({
     end
 })
 
+local Section = BringTab:Section({ 
+    Title = "fuel",
+    Icon = "fire",
+})
+
 -- Selected fuel table
 local SelectedFuel = {}
 
@@ -439,11 +444,6 @@ local function GetTargetCFrame()
         return CFrame.new(4.95910645e-05, 1.49994469, -7.62939453e-06, -1.1920929e-07, 1.00000012, 0, 1.00000012, -1.1920929e-07, 0, 0, 0, -1.00000024)
     end
 end
-
-local Section = BringTab:Section({ 
-    Title = "Fuel",
-    Icon = "fire",
-})
 
 -- Fuel dropdown
 BringTab:Dropdown({
