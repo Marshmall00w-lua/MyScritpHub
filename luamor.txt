@@ -237,8 +237,23 @@ local MainTab = Window:Tab({
     Icon = "Map",
 })
 
-local DamageEvent = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("DamagePlayer")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Wait until RemoteEvents folder exists
+local remoteFolder = ReplicatedStorage:WaitForChild("RemoteEvents", 10)
+if not remoteFolder then
+    warn("❌ RemoteEvents folder not found in ReplicatedStorage.")
+    return
+end
+
+-- Wait until DamagePlayer event exists
+local DamageEvent = remoteFolder:WaitForChild("DamagePlayer", 10)
+if not DamageEvent then
+    warn("❌ DamagePlayer event not found in RemoteEvents.")
+    return
+end
+
+-- God Mode Button
 MainTab:Button({
     Title = "God Mode",
     Desc = "Become unkillable instantly",
