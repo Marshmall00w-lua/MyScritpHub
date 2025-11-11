@@ -237,11 +237,6 @@ local MainTab = Window:Tab({
     Icon = "map",
 })
 
-MainTab:Section({ 
-    Title = "God mode",
-    Icon = "cog",
-})
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Wait until RemoteEvents folder exists
