@@ -415,7 +415,7 @@ BringTab:Button({
 
 local Section = BringTab:Section({ 
     Title = "fuel",
-    Icon = "fire",
+    Icon = "flame",
 })
 
 -- Selected fuel table
