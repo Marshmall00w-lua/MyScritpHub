@@ -234,11 +234,11 @@ SupportedGamesTab:Button({
 -- 🏠 Main Tab
 local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "Cog",
+    Icon = "Map",
 })
 
 MainTab:Section({
-    Icon = "gear",
+    Icon = "Shield",
     Title = "Kill Aura",
 })
 
@@ -452,7 +452,7 @@ MainTab:Toggle({
 })
 
 MainTab:Section({
-    Icon = "gear",
+    Icon = "cog",
     Title = "Auto Tame",
 })
 
@@ -560,7 +560,7 @@ MainTab:Button({
 
 local MiscTab = Window:Tab({
     Title = "Misc",
-    Icon = "bird", -- optional
+    Icon = "Compass", -- optional
     Locked = false,
 })
 
