@@ -231,414 +231,326 @@ SupportedGamesTab:Button({
     end
 })
 
--- 🏠 Main Tab
-local MainTab = Window:Tab({
-    Title = "Main",
-    Icon = "heart",
+local BringTab = Window:Tab({
+    Title = "Bring Items",
+    Icon = "package",
 })
 
--- Services
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
+-- Target selection
+local BringTarget = "You"
 
-local player = Players.LocalPlayer
-
--- Utility
-local function includes(t, v) return t and table.find(t, v) ~= nil end
-local MAX_ITEMS = 50
-
--- Targets dropdown
-local selectedTargets = {}
-MainTab:Dropdown({
-    Title = "Choose Target",
-    Values = { "Player", "Campfire" },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(option)
-        selectedTargets = option
-    end
-})
-
--- DEST helper
-local function getDestinationCFrame()
-    if includes(selectedTargets, "Campfire") then
-        return CFrame.new(0, 8, 0)
-    elseif includes(selectedTargets, "Player") then
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            return character.HumanoidRootPart.CFrame
-        else
-            return nil
-        end
-    end
-    return nil
-end
-
--- Generic mover function (handles Model/BasePart/other with BasePart descendant)
-local function moveInstanceToDest(inst, destCFrame)
-    if not inst or not destCFrame then return false end
-    if inst:IsA("Model") then
-        local primary = inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart", true)
-        if primary then
-            inst:SetPrimaryPartCFrame(destCFrame)
-            return true
-        end
-    elseif inst:IsA("BasePart") then
-        inst.CFrame = destCFrame
-        return true
-    else
-        local part = inst:FindFirstChildWhichIsA("BasePart", true)
-        if part then
-            local modelLike = part:FindFirstAncestorOfClass("Model")
-            if modelLike then
-                modelLike:SetPrimaryPartCFrame(destCFrame)
-                return true
-            else
-                part.CFrame = destCFrame
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Notify helper
-local function notify(title, content, dur)
-    WindUI:Notify({ Title = title or "Phantom Notify", Content = content or "", Duration = dur or 3 })
-end
-
--- ---------- DROPDOWNS for categories ----------
--- Items (general)
-local selectedItems = {}
-MainTab:Section({ Title = "Items" })
-MainTab:Dropdown({
-    Title = "Choose Item(s)",
-    Values = {
-        "Bolt", "Tyre", "Sheet Metal", "Old Radio", "Broken Fan",
-        "Broken Microwave", "Washing Machine", "Old Car Engine",
-        "UFO Scrap", "UFO Component", "UFO Junk", "Cultist Gem", "Gem of the Forest"
-    },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(option)
-        selectedItems = option
-    end
-})
-
-MainTab:Button({
-    Title = "Collect Item(s)",
-    Desc = "Move chosen items to target",
-    Callback = function()
-        local dest = getDestinationCFrame()
-        if not dest then notify("Phantom Notify", "⚠️ Choose a Target (Player or Campfire)", 4); return end
-        if not (selectedItems and #selectedItems > 0) then notify("Phantom Notify", "⚠️ Choose Item(s) to collect", 4); return end
-
-        local itemsFolder = Workspace:FindFirstChild("Items")
-        if not itemsFolder then notify("Phantom Notify", "⚠️ Items folder not found", 4); return end
-
-        local total = 0
-        local notFound = {}
-
-        for _, name in ipairs(selectedItems) do
-            if total >= MAX_ITEMS then break end
-            local foundAny = false
-            for _, obj in ipairs(itemsFolder:GetChildren()) do
-                if total >= MAX_ITEMS then break end
-                if obj.Name == name then
-                    local ok = pcall(moveInstanceToDest, obj, dest)
-                    if ok then
-                        total += 1
-                        foundAny = true
-                        task.wait(0.03)
-                    end
-                end
-            end
-            if not foundAny then table.insert(notFound, name) end
-        end
-
-        if total > 0 then notify("Phantom Notify", "✅ Moved "..total.." item(s).", 4) end
-        if #notFound > 0 then notify("Phantom Notify", "⚠️ Not found: "..table.concat(notFound, ", "), 5) end
-    end
-})
-
--- Fuel
-local selectedFuelItems = {}
-MainTab:Section({ Title = "Fuel" })
-MainTab:Dropdown({
-    Title = "Choose Fuel",
-    Values = {
-        "Corpse", "Sapling", "Alien", "Log", "Chair",
-        "Coal", "Fuel Canister", "Oil Barrel", "Biofuel"
-    },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(option)
-        selectedFuelItems = option
-    end
-})
-MainTab:Button({
-    Title = "Collect Fuel",
-    Desc = "",
-    Callback = function()
-        local dest = getDestinationCFrame()
-        if not dest then notify("Phantom Notify", "⚠️ Choose a Target (Player or Campfire)", 4); return end
-        if not (selectedFuelItems and #selectedFuelItems > 0) then notify("Phantom Notify", "⚠️ Choose Fuel Items", 4); return end
-
-        local itemsFolder = Workspace:FindFirstChild("Items")
-        if not itemsFolder then notify("Phantom Notify", "⚠️ Items folder not found", 4); return end
-
-        local total = 0
-        local notFound = {}
-
-        for _, name in ipairs(selectedFuelItems) do
-            if total >= MAX_ITEMS then break end
-            local found = false
-            for _, obj in ipairs(itemsFolder:GetChildren()) do
-                if total >= MAX_ITEMS then break end
-                if obj.Name == name then
-                    local ok = pcall(moveInstanceToDest, obj, dest)
-                    if ok then
-                        total += 1
-                        found = true
-                        task.wait(0.03)
-                    end
-                end
-            end
-            if not found then table.insert(notFound, name) end
-        end
-
-        if total > 0 then notify("Phantom Notify", "✅ Moved "..total.." fuel item(s).", 4) end
-        if #notFound > 0 then notify("Phantom Notify", "⚠️ Not found: "..table.concat(notFound, ", "), 5) end
-    end
-})
-
--- Food / Healing
-local selectedFoodItems = {}
-MainTab:Section({ Title = "Food / Healing" })
-MainTab:Dropdown({
-    Title = "Choose Food / Healing",
-    Values = {
-        "Carrot", "Berry", "Morsel", "Steak", "Ribs",
-        "Cooked Morsel", "Cooked Steak", "Cooked Ribs",
-        "Bandage", "Medkit", "Chili"
-    },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(option)
-        selectedFoodItems = option
-    end
-})
-MainTab:Button({
-    Title = "Collect Food / Healing",
-    Callback = function()
-        local dest = getDestinationCFrame()
-        if not dest then notify("Phantom Notify", "⚠️ Choose a Target (Player or Campfire)", 4); return end
-        if not (selectedFoodItems and #selectedFoodItems > 0) then notify("Phantom Notify", "⚠️ Choose Food Items", 4); return end
-
-        local itemsFolder = Workspace:FindFirstChild("Items")
-        if not itemsFolder then notify("Phantom Notify", "⚠️ Items folder not found", 4); return end
-
-        local total = 0
-        local notFound = {}
-
-        for _, name in ipairs(selectedFoodItems) do
-            if total >= MAX_ITEMS then break end
-            local found = false
-            for _, obj in ipairs(itemsFolder:GetChildren()) do
-                if total >= MAX_ITEMS then break end
-                if obj.Name == name then
-                    local ok = pcall(moveInstanceToDest, obj, dest)
-                    if ok then
-                        total += 1
-                        found = true
-                        task.wait(0.03)
-                    end
-                end
-            end
-            if not found then table.insert(notFound, name) end
-        end
-
-        if total > 0 then notify("Phantom Notify", "✅ Moved "..total.." food item(s).", 4) end
-        if #notFound > 0 then notify("Phantom Notify", "⚠️ Not found: "..table.concat(notFound, ", "), 5) end
-    end
-})
-
--- Guns & Armor
-local selectedGearItems = {}
-MainTab:Section({ Title = "Guns & Armor" })
-MainTab:Dropdown({
-    Title = "Choose Guns / Armor",
-    Values = {
-        "Morning star", "Laser Sword", "Raygun", "Chainsaw", "Strong Axe",
-        "Spear", "Good Axe", "Revolver", "Rifle", "Tactical Shotgun",
-        "Revolver Ammo", "Rifle Ammo", "Alien Armour", "Leather Body",
-        "Iron Body", "Thorn Body", "Riot Shield"
-    },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(option)
-        selectedGearItems = option
-    end
-})
-MainTab:Button({
-    Title = "Collect Guns / Armor",
-    Callback = function()
-        local dest = getDestinationCFrame()
-        if not dest then notify("Phantom Notify", "⚠️ Choose a Target (Player or Campfire)", 4); return end
-        if not (selectedGearItems and #selectedGearItems > 0) then notify("Phantom Notify", "⚠️ Choose Gear Items", 4); return end
-
-        local itemsFolder = Workspace:FindFirstChild("Items")
-        if not itemsFolder then notify("Phantom Notify", "⚠️ Items folder not found", 4); return end
-
-        local total = 0
-        local notFound = {}
-
-        for _, name in ipairs(selectedGearItems) do
-            if total >= MAX_ITEMS then break end
-            local found = false
-            for _, obj in ipairs(itemsFolder:GetChildren()) do
-                if total >= MAX_ITEMS then break end
-                if obj.Name == name then
-                    local ok = pcall(moveInstanceToDest, obj, dest)
-                    if ok then
-                        total += 1
-                        found = true
-                        task.wait(0.03)
-                    end
-                end
-            end
-            if not found then table.insert(notFound, name) end
-        end
-
-        if total > 0 then notify("Phantom Notify", "✅ Moved "..total.." gear item(s).", 4) end
-        if #notFound > 0 then notify("Phantom Notify", "⚠️ Not found: "..table.concat(notFound, ", "), 5) end
-    end
-})
-
--- Chest items (select list)
-local allChestItems = {
-    "Bandage","Good Sack","Good Axe","Old Flashlight","Spear","Revolver","Revolver Ammo",
-    "Fuel Canister","Flower Seeds","Alien Armor","Laser Sword","Laser Cannon","Ice Axe",
-    "Snowball","Ice Sword","Frozen Shuriken","Leather Body","Berry Seeds","Rifle","Ammo",
-    "Strong Flashlight","Defensive Blueprint Spikes","Iron Body","Chili Seeds","Oil Barrel",
-    "Strong Axe","Giant Sack","Medkit","Defensive Blueprint Bear Trap","Defensive Blueprint Barbed Sore",
-    "Cultist Gem","Chainsaw","Kunai","Riot Shield","Thorn Armor","Tactical Shotgun","Gem of the Forest Fragment"
-}
-local chestSelectedItems = {}
-MainTab:Section({ Title = "Chest Items" })
-MainTab:Dropdown({
-    Title = "Select Chest Items",
-    Values = allChestItems,
-    Value = {},
-    Multi = true,
-    AllowNone = true,
+BringTab:Dropdown({
+    Title = "Select Target",
+    Values = {"You", "Campfire", "Workbench"},
+    Value = BringTarget,
     Callback = function(selected)
-        chestSelectedItems = selected
+        BringTarget = selected
+        print("🎯 Bring target set to:", BringTarget)
     end
 })
-MainTab:Button({
-    Title = "Collect Chest Items",
+
+-- Max per item variable
+local MaxPerItem = 10 -- default
+
+local Input = BringTab:Input({
+    Title = "Max Per Item",
+    Desc = "Enter how many of each item to bring",
+    Value = tostring(MaxPerItem), -- show default value
+    InputIcon = "bird",
+    Type = "Input", -- single-line input
+    Placeholder = "Enter number...",
+    Callback = function(input)
+        local num = tonumber(input)
+        if num and num > 0 then
+            MaxPerItem = num
+            print("🎚️ MaxPerItem set to:", MaxPerItem)
+        else
+            warn("⚠️ Invalid number entered")
+        end
+    end
+})
+
+-- Selected items table
+local SelectedItems = {}
+
+-- Full items list with "All" option
+local ItemsList = {
+    "All", -- special option to select everything
+    "Bolt", "Tyre", "Sheet Metal", "Old Radio", "Broken Fan",
+    "Broken Microwave", "Washing Machine", "Old Car Engine",
+    "UFO Scrap", "UFO Component", "UFO Junk", "Cultist Gem", "Gem of the Forest"
+}
+
+-- Stop flag
+local StopBring = false
+
+-- Function to get target CFrame
+local function GetTargetCFrame()
+    if BringTarget == "You" then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            return char.HumanoidRootPart.CFrame
+        end
+    elseif BringTarget == "Workbench" then
+        return CFrame.new(20.9532776, 3.18912888, -5.23712301, -1, 0, 0, 0, 1, 0, 0, 0, -1)
+    elseif BringTarget == "Campfire" then
+        return CFrame.new(4.95910645e-05, 1.49994469, -7.62939453e-06, -1.1920929e-07, 1.00000012, 0, 1.00000012, -1.1920929e-07, 0, 0, 0, -1.00000024)
+    end
+end
+
+local Section = BringTab:Section({ 
+    Title = "Gears",
+    Icon = "cog",
+})
+
+-- Selected item variable
+local SelectedItem = "Bolt" -- default value
+
+BringTab:Dropdown({
+    Title = "Select Gear",
+    Values = ItemsList,
+    Multi = true,  -- Enable multi-selection
+    Value = {},    -- start empty
+    Callback = function(selected)
+        if table.find(selected, "All") then
+            -- If "All" is selected, use all items except "All"
+            SelectedItems = {}
+            for _, item in ipairs(ItemsList) do
+                if item ~= "All" then
+                    table.insert(SelectedItems, item)
+                end
+            end
+        else
+            SelectedItems = selected
+        end
+        print("🎯 Selected Items:", table.concat(SelectedItems, ", "))
+    end
+})
+
+BringTab:Button({
+    Title = "Bring Selected Items",
     Callback = function()
-        local dest = getDestinationCFrame()
-        if not dest then notify("Phantom Notify", "⚠️ Choose a Target (Player or Campfire)", 4); return end
-        if not (chestSelectedItems and #chestSelectedItems > 0) then notify("Phantom Notify", "⚠️ Choose Chest Items", 4); return end
+        local itemsFolder = workspace:FindFirstChild("Items")
+        local player = game.Players.LocalPlayer
+        local targetPos
 
-        local itemsFolder = Workspace:FindFirstChild("Items")
-        if not itemsFolder then notify("Phantom Notify", "⚠️ Items folder not found", 4); return end
+        -- Determine target position
+        if BringTarget == "You" then
+            local char = player.Character
+            targetPos = char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position
+        elseif BringTarget == "Workbench" then
+            targetPos = Vector3.new(20.9532776, 3.18912888, -5.23712301)
+        elseif BringTarget == "Campfire" then
+            targetPos = Vector3.new(4.95910645e-05, 1.49994469, -7.62939453e-06)
+        end
 
-        local total = 0
-        local notFound = {}
+        if not targetPos then
+            warn("⚠️ Target not found")
+            return
+        end
 
-        for _, name in ipairs(chestSelectedItems) do
-            if total >= MAX_ITEMS then break end
-            local found = false
-            for _, obj in ipairs(itemsFolder:GetChildren()) do
-                if total >= MAX_ITEMS then break end
-                if obj.Name == name then
-                    local ok = pcall(moveInstanceToDest, obj, dest)
-                    if ok then
-                        total += 1
-                        found = true
-                        task.wait(0.03)
-                        break
+        local notFoundItems = {} -- store missing items
+        local broughtItemsCount = 0 -- total items brought
+
+        for _, itemName in ipairs(SelectedItems) do
+            local broughtCount = 0
+            local maxBring = MaxPerItem or 10
+
+            for _, item in ipairs(itemsFolder:GetChildren()) do
+                if item.Name == itemName and item:IsA("Model") then
+                    local base = item:FindFirstChildWhichIsA("BasePart")
+                    if base then
+                        if not item.PrimaryPart then
+                            item.PrimaryPart = base
+                        end
+
+                        -- Teleport item
+                        game.ReplicatedStorage.RemoteEvents.RequestStartDraggingItem:FireServer(item)
+                        item:SetPrimaryPartCFrame(CFrame.new(targetPos + Vector3.new(0,3,0)))
+                        game.ReplicatedStorage.RemoteEvents.StopDraggingItem:FireServer(item)
+
+                        broughtCount = broughtCount + 1
+                        broughtItemsCount = broughtItemsCount + 1
+                        task.wait(0.05)
+
+                        if broughtCount >= maxBring then
+                            break
+                        end
                     end
                 end
             end
-            if not found then table.insert(notFound, name) end
+
+            if broughtCount == 0 then
+                table.insert(notFoundItems, itemName)
+            else
+                print("✅ Brought", broughtCount, itemName, "to", BringTarget)
+            end
         end
 
-        if total > 0 then notify("Phantom Notify", "✅ Moved "..total.." chest item(s).", 4) end
-        if #notFound > 0 then notify("Phantom Notify", "⚠️ Not found: "..table.concat(notFound, ", "), 5) end
+        -- Notify missing items
+        if WindUI and #notFoundItems > 0 then
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Could not find items",
+                    Content = table.concat(notFoundItems, ", "),
+                    Duration = 5,
+                    Icon = "bird",
+                })
+            end)
+        end
+
+        -- Notify success
+        if WindUI and broughtItemsCount > 0 then
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Items Brought",
+                    Content = "Successfully brought " .. broughtItemsCount .. " item(s) to " .. BringTarget,
+                    Duration = 4,
+                    Icon = "bird",
+                })
+            end)
+        end
     end
 })
 
--- Other items
-local selectedOtherItems = {}
-MainTab:Section({ Title = "Other Items" })
-MainTab:Dropdown({
-    Title = "Choose Other Items",
-    Values = {
-        "Sack", "Seed Box", "Chainsaw", "Old Flashlight", "Strong Flastlight",
-        "Bunny Foot", "Wolf Pelt", "Bear Pelt", "Alpha Wolf Pet",
-        "Artic Fox Pelt", "Polar Bear Pelt", "Mammoth Tusk"
-    },
-    Value = {},
-    Multi = true,
-    AllowNone = true,
-    Callback = function(option)
-        selectedOtherItems = option
+-- Selected fuel table
+local SelectedFuel = {}
+
+-- Full fuel list with "All" option
+local FuelList = {
+    "All", -- special option to select everything
+    "Corpse", "Sapling", "Alien", "Log", "Chair",
+    "Coal", "Fuel Canister", "Oil Barrel", "Biofuel"
+}
+
+-- Stop flag
+local StopBring = false
+
+-- Function to get target CFrame
+local function GetTargetCFrame()
+    if BringTarget == "You" then
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            return char.HumanoidRootPart.CFrame
+        end
+    elseif BringTarget == "Workbench" then
+        return CFrame.new(20.9532776, 3.18912888, -5.23712301, -1, 0, 0, 0, 1, 0, 0, 0, -1)
+    elseif BringTarget == "Campfire" then
+        return CFrame.new(4.95910645e-05, 1.49994469, -7.62939453e-06, -1.1920929e-07, 1.00000012, 0, 1.00000012, -1.1920929e-07, 0, 0, 0, -1.00000024)
+    end
+end
+
+local Section = FuelTab:Section({ 
+    Title = "Fuel",
+    Icon = "fire",
+})
+
+-- Fuel dropdown
+BringTab:Dropdown({
+    Title = "Select Fuel",
+    Values = FuelList,
+    Multi = true,  -- Enable multi-selection
+    Value = {},    -- start empty
+    Callback = function(selected)
+        if table.find(selected, "All") then
+            -- If "All" is selected, use all items except "All"
+            SelectedFuel = {}
+            for _, fuel in ipairs(FuelList) do
+                if fuel ~= "All" then
+                    table.insert(SelectedFuel, fuel)
+                end
+            end
+        else
+            SelectedFuel = selected
+        end
+        print("🎯 Selected Fuel:", table.concat(SelectedFuel, ", "))
     end
 })
-MainTab:Button({
-    Title = "Collect Other Items",
+
+-- Bring Fuel button
+BringTab:Button({
+    Title = "Bring Selected Fuel",
     Callback = function()
-        local dest = getDestinationCFrame()
-        if not dest then notify("Phantom Notify", "⚠️ Choose a Target (Player or Campfire)", 4); return end
-        if not (selectedOtherItems and #selectedOtherItems > 0) then notify("Phantom Notify", "⚠️ Choose Other Items", 4); return end
+        local itemsFolder = workspace:FindFirstChild("Items")
+        local player = game.Players.LocalPlayer
+        local targetPos
 
-        local itemsFolder = Workspace:FindFirstChild("Items")
-        if not itemsFolder then notify("Phantom Notify", "⚠️ Items folder not found", 4); return end
+        -- Determine target position
+        if BringTarget == "You" then
+            local char = player.Character
+            targetPos = char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position
+        elseif BringTarget == "Workbench" then
+            targetPos = Vector3.new(20.9532776, 3.18912888, -5.23712301)
+        elseif BringTarget == "Campfire" then
+            targetPos = Vector3.new(4.95910645e-05, 1.49994469, -7.62939453e-06)
+        end
 
-        local total = 0
-        local notFound = {}
+        if not targetPos then
+            warn("⚠️ Target not found")
+            return
+        end
 
-        for _, name in ipairs(selectedOtherItems) do
-            if total >= MAX_ITEMS then break end
-            local found = false
-            for _, obj in ipairs(itemsFolder:GetChildren()) do
-                if total >= MAX_ITEMS then break end
-                if obj.Name == name then
-                    local ok = pcall(moveInstanceToDest, obj, dest)
-                    if ok then
-                        total += 1
-                        found = true
-                        task.wait(0.03)
+        local notFoundFuel = {} -- store missing items
+        local broughtCountTotal = 0
+
+        for _, fuelName in ipairs(SelectedFuel) do
+            local broughtCount = 0
+            local maxBring = MaxPerItem or 10
+
+            for _, item in ipairs(itemsFolder:GetChildren()) do
+                if item.Name == fuelName and item:IsA("Model") then
+                    local base = item:FindFirstChildWhichIsA("BasePart")
+                    if base then
+                        if not item.PrimaryPart then
+                            item.PrimaryPart = base
+                        end
+
+                        -- Teleport fuel
+                        game.ReplicatedStorage.RemoteEvents.RequestStartDraggingItem:FireServer(item)
+                        item:SetPrimaryPartCFrame(CFrame.new(targetPos + Vector3.new(0,3,0)))
+                        game.ReplicatedStorage.RemoteEvents.StopDraggingItem:FireServer(item)
+
+                        broughtCount = broughtCount + 1
+                        broughtCountTotal = broughtCountTotal + 1
+                        task.wait(0.05)
+
+                        if broughtCount >= maxBring then
+                            break
+                        end
                     end
                 end
             end
-            if not found then table.insert(notFound, name) end
+
+            if broughtCount == 0 then
+                table.insert(notFoundFuel, fuelName)
+            else
+                print("✅ Brought", broughtCount, fuelName, "to", BringTarget)
+            end
         end
 
-        if total > 0 then notify("Phantom Notify", "✅ Moved "..total.." other item(s).", 4) end
-        if #notFound > 0 then notify("Phantom Notify", "⚠️ Not found: "..table.concat(notFound, ", "), 5) end
+        -- Notify missing fuel
+        if WindUI and #notFoundFuel > 0 then
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Could not find fuel",
+                    Content = table.concat(notFoundFuel, ", "),
+                    Duration = 5,
+                    Icon = "bird",
+                })
+            end)
+        end
+
+        -- Notify successful brings
+        if WindUI and broughtCountTotal > 0 then
+            pcall(function()
+                WindUI:Notify({
+                    Title = "Fuel Brought",
+                    Content = "Successfully brought " .. broughtCountTotal .. " fuel item(s) to " .. BringTarget,
+                    Duration = 4,
+                    Icon = "bird",
+                })
+            end)
+        end
     end
 })
 
--- Final small helper button: select default target = Player
-Tab:Button({
-    Title = "Set Target → Player",
-    Callback = function()
-        selectedTargets = { "Player" }
-        notify("Phantom Notify", "Target set to Player", 2)
-    end
-})
-
--- Set default selected target to Player
-selectedTargets = { "Player" }
-
-notify("Phantom Flux", "Item Control UI loaded", 3)
