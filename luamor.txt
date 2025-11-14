@@ -231,10 +231,12 @@ SupportedGamesTab:Button({
     end
 })
 
+Window:Divider()
+
 -- 🏠 Main Tab
 local MainTab = Window:Tab({
     Title = "Main",
-    Icon = "map",
+    Icon = "house",
 })
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -263,7 +265,7 @@ MainTab:Button({
             Title = "God Mode",
             Content = "You're now invincible!",
             Duration = 3,
-            Icon = "shield",
+            Icon = "rbxassetid://84501312005643",
         })
     end
 })
@@ -575,9 +577,9 @@ local function grabFlute()
         pcall(function()
             WindUI:Notify({
                 Title = "Grab Flute",
-                Content = "You already have the Old Taming Flute!",
+                Content = "You already have the flute!",
                 Duration = 2,
-                Icon = "check",
+                Icon = "rbxassetid://84501312005643",
             })
         end)
     end
@@ -643,7 +645,7 @@ task.spawn(function()
                         Title = "Auto Heal",
                         Content = "Used Bandage at " .. math.floor(humanoid.Health) .. " HP!",
                         Duration = 3,
-                        Icon = "heart",
+                        Icon = "rbxassetid://84501312005643",
                     })
                     cooldown = true
                     task.wait(5)
@@ -651,9 +653,9 @@ task.spawn(function()
                 else
                     WindUI:Notify({
                         Title = "Auto Heal",
-                        Content = "❌ No Bandage found in inventory!",
+                        Content = "No Bandage found in inventory!",
                         Duration = 3,
-                        Icon = "x",
+                        Icon = "rbxassetid://84501312005643",
                     })
                     task.wait(3)
                 end
@@ -681,7 +683,7 @@ BringTab:Dropdown({
     Value = BringTarget,
     Callback = function(selected)
         BringTarget = selected
-        print("🎯 Bring target set to:", BringTarget)
+        print(" Bring target set to:", BringTarget)
     end
 })
 
@@ -819,7 +821,7 @@ BringTab:Button({
             if broughtCount == 0 then
                 table.insert(notFoundItems, itemName)
             else
-                print("✅ Brought", broughtCount, itemName, "to", BringTarget)
+                print("Brought", broughtCount, itemName, "to", BringTarget)
             end
         end
 
@@ -830,7 +832,7 @@ BringTab:Button({
                     Title = "Could not find items",
                     Content = table.concat(notFoundItems, ", "),
                     Duration = 5,
-                    Icon = "bird",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -842,7 +844,7 @@ BringTab:Button({
                     Title = "Items Brought",
                     Content = "Successfully brought " .. broughtItemsCount .. " item(s) to " .. BringTarget,
                     Duration = 4,
-                    Icon = "bird",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -899,7 +901,7 @@ BringTab:Dropdown({
         else
             SelectedFuel = selected
         end
-        print("🎯 Selected Fuel:", table.concat(SelectedFuel, ", "))
+        print(" Selected Fuel:", table.concat(SelectedFuel, ", "))
     end
 })
 
@@ -971,7 +973,7 @@ BringTab:Button({
                     Title = "Could not find fuel",
                     Content = table.concat(notFoundFuel, ", "),
                     Duration = 5,
-                    Icon = "bird",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -983,7 +985,7 @@ BringTab:Button({
                     Title = "Fuel Brought",
                     Content = "Successfully brought " .. broughtCountTotal .. " fuel item(s) to " .. BringTarget,
                     Duration = 4,
-                    Icon = "bird",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1113,7 +1115,7 @@ BringTab:Button({
                     Title = "Could not find food",
                     Content = table.concat(notFoundFood, ", "),
                     Duration = 5,
-                    Icon = "bird",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1125,7 +1127,7 @@ BringTab:Button({
                     Title = "Food Brought",
                     Content = "Successfully brought " .. broughtCountTotal .. " item(s) to " .. BringTarget,
                     Duration = 4,
-                    Icon = "bird",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1256,7 +1258,7 @@ BringTab:Button({
                     Title = "Could not find weapons",
                     Content = table.concat(notFoundWeapons, ", "),
                     Duration = 5,
-                    Icon = "crossed_swords",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1268,7 +1270,7 @@ BringTab:Button({
                     Title = "Weapons Brought",
                     Content = "Successfully brought " .. broughtCountTotal .. " item(s) to " .. BringTarget,
                     Duration = 4,
-                    Icon = "crossed_swords",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1398,7 +1400,7 @@ BringTab:Button({
                     Title = "Could not find items",
                     Content = table.concat(notFoundItems, ", "),
                     Duration = 5,
-                    Icon = "package",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1410,7 +1412,7 @@ BringTab:Button({
                     Title = "Items Brought",
                     Content = "Successfully brought " .. broughtItemsCount .. " item(s) to " .. BringTarget,
                     Duration = 4,
-                    Icon = "package",
+                    Icon = "rbxassetid://84501312005643",
                 })
             end)
         end
@@ -1621,6 +1623,8 @@ local Toggle = Section:Toggle({
         end
     end
 })
+
+Window:Divider()
 
 local MiscTab = Window:Tab({
     Title = "Misc",
