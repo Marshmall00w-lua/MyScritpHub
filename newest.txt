@@ -240,11 +240,13 @@ TabHandles.Quest:Paragraph({
     Title = "Announcement",
     Desc = "Equip Weapon to Enable"
 })
+
 TabHandles.Quest:Section({ Title = "Lost Child 1" })
 local JailCellarLabel = TabHandles.Quest:Paragraph({
     Title = "Jail Cellar Status",
     Desc = "Status : Waiting..."
 })
+
 spawn(function()
     while task.wait(0.2) do
         pcall(function()
