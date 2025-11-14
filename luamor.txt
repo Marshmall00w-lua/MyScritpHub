@@ -605,7 +605,7 @@ MainTab:Section({
 })
 
 MainTab:Toggle({
-    Title = "Auto Heal",
+    Title = "Auto Heal (bandage)",
     Default = false,
     Callback = function(state)
         autoHealEnabled = state
@@ -1412,6 +1412,211 @@ BringTab:Button({
                     Duration = 4,
                     Icon = "package",
                 })
+            end)
+        end
+    end
+})
+
+local AutoTab = Window:Tab({
+    Title = "Auto",
+    Icon = "play",
+})
+
+local Section = AutoTab:Section({ 
+    Title = "Lost Child",
+    Icon = "baby",
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Campfire CFrame (teleport slightly higher)
+local CampfireCFrame = CFrame.new(
+    4.95910645e-05, 1.49994469, -7.62939453e-06,
+    -1.1920929e-07, 1.00000012, 0,
+    1.00000012, -1.1920929e-07, 0,
+    0, 0, -1.00000024
+)
+
+-- Sack types
+local Sacks = {
+    ["Old Sack"] = true,
+    ["Good Sack"] = true,
+    ["Giant Sack"] = true,
+}
+
+-- Map child types to exact model names
+local LostChildMap = {
+    Dino = "Lost Child",
+    Kraken = "Lost Child2",
+    Squid = "Lost Child3",
+    Koala = "Lost Child4"
+}
+
+local LostChildOptions = {"Dino", "Koala", "Kraken", "Squid"}
+local SelectedChildren = {}
+local CollectedChildren = {} -- track already collected
+local PICKUP_DELAY = 1.5
+
+-- GUI Dropdown
+local Dropdown = Section:Dropdown({
+    Title = "Select Lost Child(s)",
+    Desc = "Choose which child(s) to auto pick up",
+    Values = LostChildOptions,
+    Value = {LostChildOptions[1]},
+    Multi = true,
+    AllowNone = false,
+    Callback = function(option)
+        SelectedChildren = option
+        print("Selected children: " .. HttpService:JSONEncode(option))
+    end
+})
+
+-- Check if child is already in ItemBag
+local function IsChildInInventory(childType)
+    local modelName = LostChildMap[childType]
+    local bag = LocalPlayer:FindFirstChild("ItemBag")
+    if not bag then return false end
+    local category = bag:FindFirstChild(modelName)
+    if category and category:FindFirstChild(childType) then
+        return true
+    end
+    return false
+end
+
+-- Teleport, pick up, return
+local function TeleportAndPickup(childType)
+    if IsChildInInventory(childType) then
+        CollectedChildren[childType] = true
+        WindUI:Notify({
+            Title = "Already Found!",
+            Content = childType .. " is already in your inventory!",
+            Duration = 3,
+            Icon = "rbxassetid://84501312005643"
+        })
+        return
+    end
+
+    local Target = nil
+    local modelName = LostChildMap[childType]
+
+    for i = 1, 50 do
+        Target = Workspace.Characters:FindFirstChild(modelName)
+        if Target then break end
+        task.wait(0.2)
+    end
+
+    if Target then
+        local tpCFrame = Target.PrimaryPart and (Target.PrimaryPart.CFrame + Vector3.new(0, 3, 0)) or (Target:GetModelCFrame() + Vector3.new(0, 3, 0))
+        LocalPlayer.Character:SetPrimaryPartCFrame(tpCFrame)
+        task.wait(0.3)
+
+        local SackName = nil
+        for sack, _ in pairs(Sacks) do
+            if LocalPlayer.Inventory:FindFirstChild(sack) then
+                SackName = sack
+                break
+            end
+        end
+
+        if SackName then
+            task.wait(PICKUP_DELAY)
+            local success, _ = pcall(function()
+                ReplicatedStorage.RemoteEvents.RequestBagStoreItem:InvokeServer(
+                    LocalPlayer.Inventory[SackName],
+                    Target
+                )
+            end)
+
+            task.wait(0.8)
+
+            if IsChildInInventory(childType) then
+                CollectedChildren[childType] = true
+                WindUI:Notify({
+                    Title = "Success",
+                    Content = "Picked up " .. childType .. "!",
+                    Duration = 3,
+                    Icon = "rbxassetid://84501312005643"
+                })
+            else
+                CollectedChildren[childType] = false
+                WindUI:Notify({
+                    Title = "Failed",
+                    Content = "Pickup failed for " .. childType .. "!",
+                    Duration = 3,
+                    Icon = "rbxassetid://84501312005643"
+                })
+            end
+
+            LocalPlayer.Character:SetPrimaryPartCFrame(CampfireCFrame + Vector3.new(0, 2, 0))
+        else
+            WindUI:Notify({
+                Title = "Error",
+                Content = "No sack found!",
+                Duration = 3,
+                Icon = "rbxassetid://84501312005643"
+            })
+        end
+    else
+        WindUI:Notify({
+            Title = "Not Found",
+            Content = childType .. " model not spawned yet!",
+            Duration = 3,
+            Icon = "rbxassetid://84501312005643"
+        })
+    end
+end
+
+-- Helper to check if child should be skipped
+local function ShouldSkipPickup(childType)
+    return CollectedChildren[childType] or IsChildInInventory(childType)
+end
+
+-- Auto Pickup Toggle
+local AutoPickupEnabled = false
+
+local Toggle = Section:Toggle({
+    Title = "Auto Pick Up",
+    Desc = "Auto pick up selected Lost Child",
+    Icon = "bird",
+    Type = "Checkbox",
+    Value = false,
+    Callback = function(state)
+        AutoPickupEnabled = state
+        print("Auto Pick Up Toggle: " .. tostring(state))
+
+        if state then
+            spawn(function()
+                while AutoPickupEnabled do
+                    local allCollected = true
+
+                    for _, childName in pairs(SelectedChildren) do
+                        if ShouldSkipPickup(childName) then
+                            CollectedChildren[childName] = true
+                        else
+                            allCollected = false
+                            TeleportAndPickup(childName)
+                            task.wait(0.5)
+                        end
+                    end
+
+                    if allCollected then
+                        WindUI:Notify({
+                            Title = "All Collected",
+                            Content = "You have found the selected children!",
+                            Duration = 5,
+                            Icon = "rbxassetid://84501312005643"
+                        })
+                        AutoPickupEnabled = false
+                        break
+                    end
+
+                    task.wait(1)
+                end
             end)
         end
     end
