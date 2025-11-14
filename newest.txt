@@ -243,71 +243,108 @@ TabHandles.Quest:Paragraph({
     Desc = "Equip Weapon to Enable"
 })
 
-TabHandles.Quest:Section({ Title = "Lost Child 1" })
-local JailCellarLabel = TabHandles.Quest:Paragraph({
-    Title = "Jail Cellar Status",
+-- Auto Find & Auto Bring Lost Child (for 99 Nights in Forest)
+-- Uses the same RemoteEvents & instance names from your example.
+-- UI expects TabHandles.Quest to exist.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+
+-- UI
+local StatusLabel = TabHandles.Quest:Paragraph({
+    Title = "Lost Child Status",
     Desc = "Status : Waiting..."
 })
 
-spawn(function()
-    while task.wait(0.2) do
-        pcall(function()
-            local jailCellar = workspace:FindFirstChild("Map")
-                and workspace.Map:FindFirstChild("Landmarks")
-                and workspace.Map.Landmarks:FindFirstChild("Jail Cellar1")
+TabHandles.Quest:Section({ Title = "Lost Child" })
 
-            if jailCellar then
-                JailCellarLabel:SetDesc("Status : Map Spawned 🟢")
+-- Settings store (fallbacks if _G.Settings doesn't exist)
+_G = _G or {}
+_G.Settings = _G.Settings or {}
+_G.Settings.Quest = _G.Settings.Quest or {}
+_G.Settings.Quest["Auto Lost Child Quest"] = _G.Settings.Quest["Auto Lost Child Quest"] or false
+_G.Settings.Quest["Auto Bring Lost Child"] = _G.Settings.Quest["Auto Bring Lost Child"] or false
+_G.Settings.Quest["Use Hover"] = _G.Settings.Quest["Use Hover"] or true
+
+-- Hover (fly) setup (copied/adapted)
+local bodyVelocity = Instance.new("BodyVelocity")
+local bodyGyro = Instance.new("BodyGyro")
+bodyVelocity.Velocity = Vector3.new(0,0,0)
+bodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
+bodyGyro.MaxTorque = Vector3.new(1e5,1e5,1e5)
+local function createHover(root)
+    if not root then return nil end
+    bodyVelocity.Parent = root
+    bodyGyro.Parent = root
+    local humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then humanoid.PlatformStand = true end
+    local conn = RunService.Heartbeat:Connect(function()
+        if workspace.CurrentCamera then
+            bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+            bodyVelocity.Velocity = Vector3.new(0,0,0)
+        end
+    end)
+    return conn
+end
+local function stopHover(conn)
+    if conn and conn.Disconnect then pcall(conn.Disconnect, conn) end
+    bodyVelocity.Parent = nil
+    bodyGyro.Parent = nil
+    local humanoid = player.Character and player.Character:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then humanoid.PlatformStand = false end
+end
+
+-- UI toggles
+TabHandles.Quest:Toggle({
+    Title = "Auto Lost Child",
+    Desc = "Scan foliage and find Lost Child",
+    Value = _G.Settings.Quest["Auto Lost Child Quest"],
+    Callback = function(val)
+        _G.Settings.Quest["Auto Lost Child Quest"] = val
+    end
+})
+
+TabHandles.Quest:Toggle({
+    Title = "Auto Bring Lost Child",
+    Desc = "Attempt to store child in sack and bring to you (requires sack in inventory)",
+    Value = _G.Settings.Quest["Auto Bring Lost Child"],
+    Callback = function(val)
+        _G.Settings.Quest["Auto Bring Lost Child"] = val
+    end
+})
+
+TabHandles.Quest:Toggle({
+    Title = "Use Hover (Safe Teleport)",
+    Desc = "Enable the temporary hover used while scanning (helps anti-cheat)",
+    Value = _G.Settings.Quest["Use Hover"],
+    Callback = function(val)
+        _G.Settings.Quest["Use Hover"] = val
+    end
+})
+
+-- Optional: Paragraph updater for map spawn
+spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            local mapOK = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Landmarks")
+            if mapOK then
+                StatusLabel:SetDesc("Status : Map Spawned 🟢")
             else
-                JailCellarLabel:SetDesc("Status : Not Spawned 🔴")
+                StatusLabel:SetDesc("Status : Not Spawned 🔴")
             end
         end)
     end
 end)
-TabHandles.Quest:Toggle({
-    Title = "Auto Lost Child 1",
-    Desc = "Need Campfire Level 2",
-    Value = _G.Settings.Quest["Auto Lost Child Quest"],
-    Callback = function(value)
-        _G.Settings.Quest["Auto Lost Child Quest"] = value
-    end
-})
-local player = game:GetService("Players").LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local HRP = character:WaitForChild("HumanoidRootPart")
-local RunService = game:GetService("RunService")
-local bodyVelocity = Instance.new("BodyVelocity")
-local bodyGyro = Instance.new("BodyGyro")
-local flySpeed = 50
-bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
-bodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
-local function fly()
-    bodyVelocity.Parent = HRP
-    bodyGyro.Parent = HRP
-    humanoid.PlatformStand = true
-    local hoverConnection
-    hoverConnection = RunService.Heartbeat:Connect(function()
-        bodyGyro.CFrame = workspace.CurrentCamera.CFrame
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0) 
-    end)    
-    return hoverConnection
-end
-local function unfly(hoverConnection)
-    if hoverConnection then hoverConnection:Disconnect() end
-    bodyVelocity.Parent = nil
-    bodyGyro.Parent = nil
-    humanoid.PlatformStand = false   
-end
+
+-- Main worker: scanning & bringing
 task.spawn(function()
     pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Players = game:GetService("Players")
-        local Workspace = game:GetService("Workspace")
-        local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-        local player = Players.LocalPlayer
-        local visitedTrees = {}
+        -- Wait for RemoteEvents container (if exists)
+        local RemoteEvents = ReplicatedStorage:FindFirstChild("RemoteEvents")
 
         local sackNames = {
             ["Old Sack"] = true,
@@ -318,470 +355,147 @@ task.spawn(function()
         while true do
             task.wait(1)
             if _G.Settings.Quest["Auto Lost Child Quest"] then
-                local hover = fly()
-                local jailCellar
-                local foliage = Workspace:WaitForChild("Map"):WaitForChild("Foliage")
-                visitedTrees = {}
+                -- ensure char reference is fresh (handles respawn)
+                local character = player.Character or player.CharacterAdded:Wait()
+                local root = character:WaitForChild("HumanoidRootPart")
+                local hoverConn
+                if _G.Settings.Quest["Use Hover"] then
+                    hoverConn = createHover(root)
+                end
 
-                while not jailCellar and _G.Settings.Quest["Auto Lost Child Quest"] do
-                    for _, tree in pairs(foliage:GetChildren()) do
-                        if not _G.Settings.Quest["Auto Lost Child Quest"] then
-                            unfly(hover)
-                            break
-                        end
-                        if tree:IsA("Model") and (tree.Name == "TreeBig1" or tree.Name == "TreeBig2") and not visitedTrees[tree] then
-                            visitedTrees[tree] = true
-                            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                            local base = tree:FindFirstChildWhichIsA("BasePart")
-                            if root and base then
-                                root.CFrame = base.CFrame + Vector3.new(0, 3, 0)
+                -- guard: ensure foliage exists
+                local foliage = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Foliage")
+                if not foliage then
+                    StatusLabel:SetDesc("Status : Foliage not found. Waiting...")
+                else
+                    StatusLabel:SetDesc("Status : Scanning foliage...")
+                end
+
+                local visited = {}
+                local foundJail = nil
+
+                -- scan foliage for TreeBig1/TreeBig2 until Jail Cellar spawns or toggled off
+                while _G.Settings.Quest["Auto Lost Child Quest"] and not foundJail do
+                    if not Workspace:FindFirstChild("Map") then
+                        task.wait(1)
+                        continue
+                    end
+                    foliage = Workspace.Map:FindFirstChild("Foliage")
+                    if foliage then
+                        for _, tree in pairs(foliage:GetChildren()) do
+                            if not _G.Settings.Quest["Auto Lost Child Quest"] then break end
+                            if tree:IsA("Model") and (tree.Name == "TreeBig1" or tree.Name == "TreeBig2") and not visited[tree] then
+                                visited[tree] = true
+                                -- teleport to tree safely (use root)
+                                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and tree:FindFirstChildWhichIsA("BasePart") then
+                                    local base = tree:FindFirstChildWhichIsA("BasePart")
+                                    pcall(function()
+                                        player.Character.HumanoidRootPart.CFrame = base.CFrame + Vector3.new(0,3,0)
+                                    end)
+                                end
+                                task.wait(1)
+                                -- check for jail cellar spawn
+                                if Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Landmarks") and Workspace.Map.Landmarks:FindFirstChild("Jail Cellar1") then
+                                    foundJail = Workspace.Map.Landmarks:FindFirstChild("Jail Cellar1")
+                                    break
+                                end
                             end
-                            task.wait(1)
-                            jailCellar = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Landmarks") and Workspace.Map.Landmarks:FindFirstChild("Jail Cellar1")
-                            if jailCellar then break end
                         end
                     end
                     task.wait(1)
                 end
 
-                if jailCellar then
+                if foundJail and _G.Settings.Quest["Auto Lost Child Quest"] then
+                    StatusLabel:SetDesc("Status : Jail Cellar found. Performing bring sequence...")
+                    -- perform the exact sequence from your example
                     local jailCellar = Workspace.Map.Landmarks:WaitForChild("Jail Cellar1")
-                    local keyInteraction = jailCellar.LockedDoor:WaitForChild("KeyInteraction")
-                    local character = player.Character or player.CharacterAdded:Wait()
-                    local root = character:WaitForChild("HumanoidRootPart")
-                    root.CFrame = keyInteraction.CFrame + Vector3.new(0, 25, 0)
+                    local keyInteraction = jailCellar:WaitForChild("LockedDoor"):WaitForChild("KeyInteraction")
+                    -- lift root above key interaction to avoid collision
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        pcall(function()
+                            player.Character.HumanoidRootPart.CFrame = keyInteraction.CFrame + Vector3.new(0,25,0)
+                        end)
+                    end
                     task.wait(5)
 
+                    -- wait for Red Key in Workspace.Items
                     local redKey
                     repeat
-                        redKey = Workspace.Items:FindFirstChild("Red Key")
+                        redKey = Workspace:FindFirstChild("Items") and Workspace.Items:FindFirstChild("Red Key")
                         task.wait(0.5)
                     until redKey
 
-                    RemoteEvents.RequestStartDraggingItem:FireServer(redKey)
-                    redKey.PrimaryPart.CFrame = keyInteraction.CFrame
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.LockedDoor, true)
-                    task.wait(0.3)
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.Door, true)
-                    task.wait(0.3)
+                    -- Drag key & open doors (if remote exists)
+                    if RemoteEvents and RemoteEvents:FindFirstChild("RequestStartDraggingItem") and RemoteEvents:FindFirstChild("ToggleDoor") then
+                        pcall(function()
+                            RemoteEvents.RequestStartDraggingItem:FireServer(redKey)
+                            if redKey.PrimaryPart then
+                                redKey.PrimaryPart.CFrame = keyInteraction.CFrame
+                            elseif redKey:IsA("BasePart") then
+                                redKey.CFrame = keyInteraction.CFrame
+                            end
+                            RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.LockedDoor, true)
+                            task.wait(0.3)
+                            RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.Door, true)
+                        end)
+                    end
 
-                    local inventory = player:WaitForChild("Inventory")
-                    local itemBag = player:WaitForChild("ItemBag")
-                    local sackItem
-                    for _, item in ipairs(inventory:GetChildren()) do
-                        if sackNames[item.Name] then
-                            sackItem = item
-                            break
+                    -- search sack in inventory
+                    local sackItem = nil
+                    local inventory = player:FindFirstChild("Inventory")
+                    if inventory then
+                        for _, item in ipairs(inventory:GetChildren()) do
+                            if sackNames[item.Name] then
+                                sackItem = item
+                                break
+                            end
                         end
                     end
 
-                    local lostChild = Workspace.Characters:FindFirstChild("Lost Child")
-                    if lostChild and sackItem then
-                        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-                        local rightArm = lostChild:FindFirstChild("Right Arm") or lostChild.PrimaryPart
-                        if rightArm then
-                            humanoidRootPart.CFrame = rightArm.CFrame
-                            task.wait(0.2)
-                            RemoteEvents.RequestBagStoreItem:InvokeServer(sackItem, lostChild)
-                            task.wait(0.2)
-                            humanoidRootPart.CFrame = CFrame.new(0, 8, 0)
-                            task.wait(0.2)
-                            RemoteEvents.EquipItemHandle:FireServer("FireAllClients", sackItem)
-                            task.wait(0.3)
-                            RemoteEvents.RequestBagDropItem:FireServer(sackItem, lostChild)
-                            unfly(hover)
+                    -- find Lost Child and attempt bring sequence
+                    local lostChild = Workspace:FindFirstChild("Characters") and Workspace.Characters:FindFirstChild("Lost Child")
+                    if lostChild and sackItem and RemoteEvents then
+                        pcall(function()
+                            local rightArm = lostChild:FindFirstChild("Right Arm") or lostChild.PrimaryPart
+                            if rightArm and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                                player.Character.HumanoidRootPart.CFrame = rightArm.CFrame
+                                task.wait(0.2)
+                                -- Bag store, equip and drop sequence (if remotes exist)
+                                if RemoteEvents:FindFirstChild("RequestBagStoreItem") then
+                                    RemoteEvents.RequestBagStoreItem:InvokeServer(sackItem, lostChild)
+                                end
+                                task.wait(0.2)
+                                player.Character.HumanoidRootPart.CFrame = CFrame.new(0,8,0)
+                                task.wait(0.2)
+                                if RemoteEvents:FindFirstChild("EquipItemHandle") then
+                                    RemoteEvents.EquipItemHandle:FireServer("FireAllClients", sackItem)
+                                end
+                                task.wait(0.3)
+                                if RemoteEvents:FindFirstChild("RequestBagDropItem") then
+                                    RemoteEvents.RequestBagDropItem:FireServer(sackItem, lostChild)
+                                end
+                                StatusLabel:SetDesc("Status : Lost Child processed.")
+                            else
+                                StatusLabel:SetDesc("Status : Lost Child or sack invalid.")
+                            end
+                        end)
+                    else
+                        if not lostChild then
+                            StatusLabel:SetDesc("Status : Lost Child not found.")
+                        elseif not sackItem then
+                            StatusLabel:SetDesc("Status : No sack found in inventory.")
+                        else
+                            StatusLabel:SetDesc("Status : RemoteEvents missing.")
                         end
                     end
                 end
 
+                -- cleanup hover
+                stopHover(hoverConn)
+
+                -- wait until user disables toggle
                 repeat task.wait(1) until not _G.Settings.Quest["Auto Lost Child Quest"]
-                unfly(hover)
-            end
-        end
-    end)
-end)
-TabHandles.Quest:Section({ Title = "Lost Child 2" })
-local JailCellar2Label = TabHandles.Quest:Paragraph({
-    Title = "Jail Cellar 2 Status",
-    Desc = "Status : Waiting..."
-})
-
-spawn(function()
-    while task.wait(0.2) do
-        pcall(function()
-            local jailCellar2 = workspace:FindFirstChild("Map")
-                and workspace.Map:FindFirstChild("Landmarks")
-                and workspace.Map.Landmarks:FindFirstChild("Jail Cellar2")
-
-            if jailCellar2 then
-                JailCellar2Label:SetDesc("Status : Map Spawned 🟢")
-            else
-                JailCellar2Label:SetDesc("Status : Not Spawned 🔴")
-            end
-        end)
-    end
-end)
-TabHandles.Quest:Toggle({
-    Title = "Auto Lost Child 2",
-    Desc = "Need Campfire Level 4",
-    Value = _G.Settings.Quest["Auto Lost Child2 Quest"],
-    Callback = function(value)
-        _G.Settings.Quest["Auto Lost Child2 Quest"] = value
-    end
-})
-task.spawn(function()
-    pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Players = game:GetService("Players")
-        local Workspace = game:GetService("Workspace")
-        local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-        local player = Players.LocalPlayer
-        local visitedTrees = {}
-        local sackNames = {
-            ["Old Sack"] = true,
-            ["Good Sack"] = true,
-            ["Giant Sack"] = true,
-        }
-
-        while true do
-            task.wait(0.2)
-            if _G.Settings.Quest["Auto Lost Child2 Quest"] then
-                local hover = fly()
-                local jailCellar
-                local foliage = Workspace:WaitForChild("Map"):WaitForChild("Foliage")
-                visitedTrees = {}
-                while not jailCellar and _G.Settings.Quest["Auto Lost Child2 Quest"] do
-                    for _, tree in pairs(foliage:GetChildren()) do
-                        if not _G.Settings.Quest["Auto Lost Child2 Quest"] then
-                            unfly(hover)
-                            break
-                        end
-                        if tree:IsA("Model") and (tree.Name == "TreeBig1" or tree.Name == "TreeBig2") and not visitedTrees[tree] then
-                            visitedTrees[tree] = true
-                            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                            local base = tree:FindFirstChildWhichIsA("BasePart")
-                            if root and base then
-                                root.CFrame = base.CFrame + Vector3.new(0, 3, 0)
-                            end
-                            task.wait(1)
-                            jailCellar = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Landmarks") and Workspace.Map.Landmarks:FindFirstChild("Jail Cellar2")
-                            if jailCellar then break end
-                        end
-                    end
-                    task.wait(1)
-                end
-
-                if jailCellar then
-                    local jailCellar = Workspace.Map.Landmarks:WaitForChild("Jail Cellar2")
-                    local keyInteraction = jailCellar.LockedDoor:WaitForChild("KeyInteraction")
-                    local character = player.Character or player.CharacterAdded:Wait()
-                    local root = character:WaitForChild("HumanoidRootPart")
-                    root.CFrame = keyInteraction.CFrame + Vector3.new(0, 25, 0)
-                    task.wait(5)
-                    local blueKey
-                    repeat
-                        blueKey = Workspace.Items:FindFirstChild("Blue Key")
-                        task.wait(0.5)
-                    until blueKey
-                    RemoteEvents.RequestStartDraggingItem:FireServer(blueKey)
-                    blueKey.PrimaryPart.CFrame = keyInteraction.CFrame
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.LockedDoor, true)
-                    task.wait(0.3)
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.Door, true)
-                    task.wait(0.3)
-                    local inventory = player:WaitForChild("Inventory")
-                    local itemBag = player:WaitForChild("ItemBag")
-
-                    local sackItem
-                    for _, item in ipairs(inventory:GetChildren()) do
-                        if sackNames[item.Name] then
-                            sackItem = item
-                            break
-                        end
-                    end
-
-                    local lostChild2 = Workspace.Characters:FindFirstChild("Lost Child2")
-                    if lostChild2 and sackItem then
-                        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-                        local rightArm = lostChild2:FindFirstChild("Right Arm") or lostChild2.PrimaryPart
-                        if rightArm then
-                            humanoidRootPart.CFrame = rightArm.CFrame
-                            task.wait(0.2)
-                            RemoteEvents.RequestBagStoreItem:InvokeServer(sackItem, lostChild2)
-                            task.wait(0.2)
-                            humanoidRootPart.CFrame = CFrame.new(0, 8, 0)
-                            task.wait(0.2)
-                            RemoteEvents.EquipItemHandle:FireServer("FireAllClients", sackItem)
-                            task.wait(0.3)
-                            RemoteEvents.RequestBagDropItem:FireServer(sackItem, lostChild2)
-                            unfly(hover)
-                        end
-                    end
-                end
-
-                repeat task.wait(0.2) until not _G.Settings.Quest["Auto Lost Child2 Quest"]
-                unfly(hover)
-            end
-        end
-    end)
-end)
-TabHandles.Quest:Section({ Title = "Lost Child 3" })
-local JailCellar3Label = TabHandles.Quest:Paragraph({
-    Title = "Jail Cellar 3 Status",
-    Desc = "Status : Waiting..."
-})
-
-spawn(function()
-    while task.wait(0.2) do
-        pcall(function()
-            local jailCellar3 = workspace:FindFirstChild("Map")
-                and workspace.Map:FindFirstChild("Landmarks")
-                and workspace.Map.Landmarks:FindFirstChild("Jail Cellar3")
-
-            if jailCellar3 then
-                JailCellar3Label:SetDesc("Status : Map Spawned 🟢")
-            else
-                JailCellar3Label:SetDesc("Status : Not Spawned 🔴")
-            end
-        end)
-    end
-end)
-TabHandles.Quest:Toggle({
-    Title = "Auto Lost Child 3",
-    Desc = "Need Campfire Level 5",
-    Value = _G.Settings.Quest["Auto Lost Child3 Quest"],
-    Callback = function(value)
-        _G.Settings.Quest["Auto Lost Child3 Quest"] = value
-    end
-})
-task.spawn(function()
-    pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Players = game:GetService("Players")
-        local Workspace = game:GetService("Workspace")
-        local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-        local player = Players.LocalPlayer
-        local visitedTrees = {}
-        local sackNames = {
-            ["Old Sack"] = true,
-            ["Good Sack"] = true,
-            ["Giant Sack"] = true,
-        }
-
-        while true do
-            task.wait(0.2)
-            if _G.Settings.Quest["Auto Lost Child3 Quest"] then
-                local hover = fly()
-                local jailCellar
-                local foliage = Workspace:WaitForChild("Map"):WaitForChild("Foliage")
-                visitedTrees = {}
-                while not jailCellar and _G.Settings.Quest["Auto Lost Child3 Quest"] do
-                    for _, tree in pairs(foliage:GetChildren()) do
-                        if not _G.Settings.Quest["Auto Lost Child3 Quest"] then
-                            unfly(hover)
-                            break
-                        end
-                        if tree:IsA("Model") and (tree.Name == "TreeBig1" or tree.Name == "TreeBig2") and not visitedTrees[tree] then
-                            visitedTrees[tree] = true
-                            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                            local base = tree:FindFirstChildWhichIsA("BasePart")
-                            if root and base then
-                                root.CFrame = base.CFrame + Vector3.new(0, 3, 0)
-                            end
-                            task.wait(1)
-                            jailCellar = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Landmarks") and Workspace.Map.Landmarks:FindFirstChild("Jail Cellar3")
-                            if jailCellar then break end
-                        end
-                    end
-                    task.wait(1)
-                end
-
-                if jailCellar then
-                    local jailCellar = Workspace.Map.Landmarks:WaitForChild("Jail Cellar3")
-                    local keyInteraction = jailCellar.LockedDoor:WaitForChild("KeyInteraction")
-                    local character = player.Character or player.CharacterAdded:Wait()
-                    local root = character:WaitForChild("HumanoidRootPart")
-                    root.CFrame = keyInteraction.CFrame + Vector3.new(0, 25, 0)
-                    task.wait(5)
-                    local keyItem
-                    repeat
-                        keyItem = nil
-                        for _, item in ipairs(Workspace.Items:GetChildren()) do
-                            if item:IsA("Model") and item.Name:find("Key") then
-                                keyItem = item
-                                break
-                            end
-                        end
-                        task.wait(0.5)
-                    until keyItem
-                    RemoteEvents.RequestStartDraggingItem:FireServer(keyItem)
-                    keyItem.PrimaryPart.CFrame = keyInteraction.CFrame
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.LockedDoor, true)
-                    task.wait(0.3)
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.Door, true)
-                    task.wait(0.3)
-                    local inventory = player:WaitForChild("Inventory")
-                    local itemBag = player:WaitForChild("ItemBag")
-
-                    local sackItem
-                    for _, item in ipairs(inventory:GetChildren()) do
-                        if sackNames[item.Name] then
-                            sackItem = item
-                            break
-                        end
-                    end
-
-                    local lostChild3 = Workspace.Characters:FindFirstChild("Lost Child3")
-                    if lostChild3 and sackItem then
-                        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-                        local rightArm = lostChild3:FindFirstChild("Right Arm") or lostChild3.PrimaryPart
-                        if rightArm then
-                            humanoidRootPart.CFrame = rightArm.CFrame
-                            task.wait(0.2)
-                            RemoteEvents.RequestBagStoreItem:InvokeServer(sackItem, lostChild3)
-                            task.wait(0.2)
-                            humanoidRootPart.CFrame = CFrame.new(0, 8, 0)
-                            task.wait(0.2)
-                            RemoteEvents.EquipItemHandle:FireServer("FireAllClients", sackItem)
-                            task.wait(0.3)
-                            RemoteEvents.RequestBagDropItem:FireServer(sackItem, lostChild3)
-                            unfly(hover)
-                        end
-                    end
-                end
-
-                repeat task.wait(0.2) until not _G.Settings.Quest["Auto Lost Child3 Quest"]
-                unfly(hover)
-            end
-        end
-    end)
-end)
-TabHandles.Quest:Section({ Title = "Lost Child 4" })
-local JailCellar4Label = TabHandles.Quest:Paragraph({
-    Title = "Jail Cellar 4 Status",
-    Desc = "Status : Waiting..."
-})
-
-spawn(function()
-    while task.wait(0.2) do
-        pcall(function()
-            local jailCellar4 = workspace:FindFirstChild("Map")
-                and workspace.Map:FindFirstChild("Landmarks")
-                and workspace.Map.Landmarks:FindFirstChild("Jail Cellar4")
-
-            if jailCellar4 then
-                JailCellar4Label:SetDesc("Status : Map Spawned 🟢")
-            else
-                JailCellar4Label:SetDesc("Status : Not Spawned 🔴")
-            end
-        end)
-    end
-end)
-TabHandles.Quest:Toggle({
-    Title = "Auto Lost Child 4",
-    Desc = "Need Campfire Level 5",
-    Value = _G.Settings.Quest["Auto Lost Child4 Quest"],
-    Callback = function(value)
-        _G.Settings.Quest["Auto Lost Child4 Quest"] = value
-    end
-})
-task.spawn(function()
-    pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local Players = game:GetService("Workspace")
-        local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-        local player = Players.LocalPlayer
-        local visitedTrees = {}
-
-        local sackNames = {
-            ["Old Sack"] = true,
-            ["Good Sack"] = true,
-            ["Giant Sack"] = true,
-        }
-
-        while true do
-            task.wait(0.2)
-            if _G.Settings.Quest["Auto Lost Child4 Quest"] then
-                local hover = fly()
-                local jailCellar
-                local foliage = Workspace:WaitForChild("Map"):WaitForChild("Foliage")
-                visitedTrees = {}
-                while not jailCellar and _G.Settings.Quest["Auto Lost Child4 Quest"] do
-                    for _, tree in pairs(foliage:GetChildren()) do
-                        if not _G.Settings.Quest["Auto Lost Child4 Quest"] then
-                            unfly(hover)
-                            break
-                        end
-                        if tree:IsA("Model") and (tree.Name == "TreeBig1" or tree.Name == "TreeBig2") and not visitedTrees[tree] then
-                            visitedTrees[tree] = true
-                            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                            local base = tree:FindFirstChildWhichIsA("BasePart")
-                            if root and base then
-                                root.CFrame = base.CFrame + Vector3.new(0, 3, 0)
-                            end
-                            task.wait(1)
-                            jailCellar = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Landmarks") and Workspace.Map.Landmarks:FindFirstChild("Jail Cellar4")
-                            if jailCellar then break end
-                        end
-                    end
-                    task.wait(1)
-                end
-                if jailCellar then
-                    local jailCellar = Workspace.Map.Landmarks:WaitForChild("Jail Cellar4")
-                    local keyInteraction = jailCellar.LockedDoor:WaitForChild("KeyInteraction")
-                    local character = player.Character or player.CharacterAdded:Wait()
-                    local root = character:WaitForChild("HumanoidRootPart")
-                    root.CFrame = keyInteraction.CFrame + Vector3.new(0, 25, 0)
-                    task.wait(5)
-                    local keyItem
-                    repeat
-                        keyItem = nil
-                        for _, item in ipairs(Workspace.Items:GetChildren()) do
-                            if item:IsA("Model") and item.Name:find("Key") then
-                                keyItem = item
-                                break
-                            end
-                        end
-                        task.wait(0.5)
-                    until keyItem
-                    RemoteEvents.RequestStartDraggingItem:FireServer(keyItem)
-                    keyItem.PrimaryPart.CFrame = keyInteraction.CFrame
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.LockedDoor, true)
-                    task.wait(0.3)
-                    RemoteEvents.ToggleDoor:FireServer("FireAllClients", jailCellar.Door, true)
-                    task.wait(0.3)
-
-                    local inventory = player:WaitForChild("Inventory")
-                    local itemBag = player:WaitForChild("ItemBag")
-
-                    local sackItem
-                    for _, item in ipairs(inventory:GetChildren()) do
-                        if sackNames[item.Name] then
-                            sackItem = item
-                            break
-                        end
-                    end
-
-                    local lostChild4 = Workspace.Characters:FindFirstChild("Lost Child4")
-                    if lostChild4 and sackItem then
-                        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-                        local rightArm = lostChild4:FindFirstChild("Right Arm") or lostChild4.PrimaryPart
-                        if rightArm then
-                            humanoidRootPart.CFrame = rightArm.CFrame
-                            task.wait(0.2)
-                            RemoteEvents.RequestBagStoreItem:InvokeServer(sackItem, lostChild4)
-                            task.wait(0.2)
-                            humanoidRootPart.CFrame = CFrame.new(0, 8, 0)
-                            task.wait(0.2)
-                            RemoteEvents.EquipItemHandle:FireServer("FireAllClients", sackItem)
-                            task.wait(0.3)
-                            RemoteEvents.RequestBagDropItem:FireServer(sackItem, lostChild4)
-                            unfly(hover)
-                        end
-                    end
-                end
-                repeat task.wait(0.2) until not _G.Settings.Quest["Auto Lost Child4 Quest"]
-                unfly(hover)
+                StatusLabel:SetDesc("Status : Stopped.")
             end
         end
     end)
