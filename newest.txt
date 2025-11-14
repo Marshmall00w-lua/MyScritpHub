@@ -236,11 +236,6 @@ local QuestTab = Window:Tab({
     Icon = "package",
 })
 
-local Section = QuestTab:Section({ 
-    Title = "Settings",
-    Icon = "cog",
-})
-
 TabHandles.Quest:Paragraph({
     Title = "Announcement",
     Desc = "Equip Weapon to Enable"
