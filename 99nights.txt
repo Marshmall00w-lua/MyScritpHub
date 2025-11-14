@@ -918,15 +918,14 @@ BringTab:Button({
             local char = player.Character
             targetPos = char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position
         elseif BringTarget == "Workbench" then
-            targetPos = Vector3.new(20.9532776, 3.18912888, -5.23712301)
-        elseif BringTarget == "Campfire" then
-    local offset = Vector3.new(0, 5, 0) -- 5 studs above the campfire
-    local campfirePos = Vector3.new(0, 1.5, 0) -- original campfire position from your code
-    return CFrame.new(campfirePos + offset)
+        return CFrame.new(20.9532776, 3.18912888, -5.23712301, -1, 0, 0, 0, 1, 0, 0, 0, -1)
+    elseif BringTarget == "Campfire" then
+    -- offset higher above
+    return CFrame.new(4.9591e-05, 10, -7.6293e-06)
+    end
 end
 
-
-        if not targetPos then
+     if not targetPos then
             warn("⚠️ Target not found")
             return
         end
