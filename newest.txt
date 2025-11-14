@@ -231,9 +231,11 @@ SupportedGamesTab:Button({
     end
 })
 
-local QuestTab = Window:Tab({
+local TabHandles = {}
+
+TabHandles.Quest = Window:Tab({
     Title = "Bring Items",
-    Icon = "package",
+    Icon = "package"
 })
 
 TabHandles.Quest:Paragraph({
