@@ -1624,6 +1624,300 @@ local Toggle = Section:Toggle({
     end
 })
 
+local Section = AutoTab:Section({ 
+    Title = "Cut Trees",
+})
+
+-----------------------------
+-- AUTO CUT TREE SYSTEM + HP ESP
+-----------------------------
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local player = Players.LocalPlayer
+local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+
+-- Ensure Settings table exists
+_G.Settings = _G.Settings or {}
+_G.Settings.Main = _G.Settings.Main or {}
+
+-- Tree settings
+_G.Settings.Main["AutoCutTree"] = false
+_G.Settings.Main["AutoCutTreeTargets"] = {"All"}
+_G.Settings.Main["AutoCutTreeRange"] = 80
+_G.Settings.Main["ShowTreeRange"] = false
+_G.Settings.Main["ShowTreeHP"] = false
+
+-- Tree types
+local treeNames = {"All","Small Tree","Snowy Small Tree","Big Tree"}
+
+-----------------------------
+-- UI COMPONENTS
+-----------------------------
+
+-- Auto Cut Trees Toggle
+local Toggle = Section:Toggle({
+    Title = "Auto Cut Trees",
+    Desc = "Automatically chops selected trees",
+    Callback = function(state)
+        _G.Settings.Main["AutoCutTree"] = state
+    end
+})
+
+-- Tree Types Dropdown
+local Dropdown = Section:Dropdown({
+    Title = "Tree Types",
+    Description = "Select which trees to cut",
+    Values = treeNames,
+    Value = {"All"},
+    Multi = true,
+    AllowNone = true,
+    Callback = function(selected)
+        _G.Settings.Main["AutoCutTreeTargets"] = selected
+    end
+})
+
+-- Tree Range Slider
+local Slider = Section:Slider({
+    Title = "Tree Cut Range",
+    Desc = "Distance for cutting trees",
+    Step = 1,
+    Value = {
+        Min = 10,
+        Max = 100,
+        Default = 50,
+    },
+    Callback = function(value)
+        _G.Settings.Main["AutoCutTreeRange"] = tonumber(value)
+    end
+})
+
+-- Show Tree Range Toggle
+local Toggle = Section:Toggle({
+    Title = "Show Tree Range",
+    Desc = "Show Range",
+    Callback = function(state)
+        _G.Settings.Main["ShowTreeRange"] = state
+    end
+})
+
+-- Show Tree HP ESP Toggle
+local Toggle = Section:Toggle({
+    Title = "Show Tree HP",
+    Desc = "Display tree hp",
+    Callback = function(state)
+        _G.Settings.Main["ShowTreeHP"] = state
+    end
+})
+
+-----------------------------
+-- TREE RANGE CIRCLE
+-----------------------------
+
+local treeCircleFolder = workspace:FindFirstChild("TreeRangeCircle") or Instance.new("Folder", workspace)
+treeCircleFolder.Name = "TreeRangeCircle"
+
+local treeRingParts = {}
+local segments = 36
+
+for i = 1, segments do
+    local part = Instance.new("Part")
+    part.Size = Vector3.new(0.3, 0.3, 6)
+    part.Anchored = true
+    part.CanCollide = false
+    part.Material = Enum.Material.Neon
+    part.Color = Color3.fromRGB(0, 255, 0)
+    part.Parent = treeCircleFolder
+    treeRingParts[i] = part
+end
+
+local function updateTreeCircle(pos, radius)
+    for i, part in ipairs(treeRingParts) do
+        local angle = (i / segments) * math.pi * 2
+        local x = math.cos(angle) * radius
+        local z = math.sin(angle) * radius
+        part.CFrame = CFrame.new(pos + Vector3.new(x, 0.2, z)) * CFrame.Angles(0, -angle, 0)
+    end
+end
+
+-----------------------------
+-- TREE DETECTION
+-----------------------------
+
+local function findTreesInRange()
+    local results = {}
+    local range = _G.Settings.Main["AutoCutTreeRange"]
+    local selected = _G.Settings.Main["AutoCutTreeTargets"]
+
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return {} end
+    local hrp = char.HumanoidRootPart
+
+    local function processFolder(folder)
+        for _, tree in ipairs(folder:GetChildren()) do
+            if not tree:GetAttribute("Health") then continue end
+
+            local match = table.find(selected, "All") ~= nil
+            if not match then
+                for _, name in ipairs(selected) do
+                    if tree.Name == name then match = true end
+                end
+            end
+            if not match then continue end
+
+            local root = tree:FindFirstChildWhichIsA("BasePart")
+            if not root then continue end
+
+            local dist = (root.Position - hrp.Position).Magnitude
+            if dist <= range then
+                table.insert(results, tree)
+            end
+        end
+    end
+
+    local map = workspace:FindFirstChild("Map")
+    if map then
+        if map:FindFirstChild("Landmarks") then
+            processFolder(map.Landmarks)
+        end
+        if map:FindFirstChild("Foliage") then
+            processFolder(map.Foliage)
+        end
+    end
+
+    return results
+end
+
+-----------------------------
+-- AUTO CUT LOOP
+-----------------------------
+
+local toolsDamageIDs = {
+    ["Old Axe"] = "_1",
+    ["Good Axe"] = "_1",
+    ["Strong Axe"] = "_1",
+    ["Chainsaw"] = "_1"
+}
+
+local function getToolAndSuffix()
+    if not player:FindFirstChild("Inventory") then return nil, nil end
+    for toolName, suffix in pairs(toolsDamageIDs) do
+        local tool = player.Inventory:FindFirstChild(toolName)
+        if tool then
+            return tool, suffix
+        end
+    end
+    return nil, nil
+end
+
+local hitCounter = 1
+task.spawn(function()
+    while task.wait(0.15) do
+        if not _G.Settings.Main["AutoCutTree"] then continue end
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        local tool, suffix = getToolAndSuffix()
+        if not tool then continue end
+
+        local trees = findTreesInRange()
+        for _, tree in ipairs(trees) do
+            local part = tree:FindFirstChildWhichIsA("BasePart")
+            if not part then continue end
+
+            -- Fire RemoteEvent properly
+            local dmgID = tostring(hitCounter) .. suffix
+            pcall(function()
+                RemoteEvents.ToolDamageObject:InvokeServer(tree, tool, dmgID, CFrame.new(part.Position))
+            end)
+            hitCounter += 1
+        end
+    end
+end)
+
+-----------------------------
+-- TREE HP ESP
+-----------------------------
+
+local espFolder = workspace:FindFirstChild("TreeHPESP") or Instance.new("Folder", workspace)
+espFolder.Name = "TreeHPESP"
+
+local function createHPBillboard(tree)
+    local part = tree.PrimaryPart or tree:FindFirstChildWhichIsA("BasePart")
+    if not part then return end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Adornee = part
+    bb.Size = UDim2.new(0, 40, 0, 15)
+    bb.AlwaysOnTop = true
+    bb.StudsOffset = Vector3.new(0, 0, 0) -- exactly middle
+
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextColor3 = Color3.new(1, 1, 1) -- white
+    txt.TextStrokeTransparency = 0.9 -- thin stroke
+    txt.Font = Enum.Font.SourceSans
+    txt.TextScaled = true
+    txt.TextSize = 12
+    txt.TextTransparency = 0
+    txt.Parent = bb
+
+    bb.Parent = espFolder
+    return txt
+end
+
+local treeToHPLabel = {}
+
+task.spawn(function()
+    while task.wait(0.2) do
+        if _G.Settings.Main["ShowTreeHP"] then
+            for _, tree in ipairs(findTreesInRange()) do
+                if not treeToHPLabel[tree] then
+                    treeToHPLabel[tree] = createHPBillboard(tree)
+                end
+                local label = treeToHPLabel[tree]
+                if label and label.Parent then
+                    local hp = tree:GetAttribute("Health") or 0
+                    label.Text = "HP: ".. tostring(math.floor(hp))
+                end
+            end
+        else
+            for _, label in pairs(treeToHPLabel) do
+                if label and label.Parent then label.Parent:Destroy() end
+            end
+            treeToHPLabel = {}
+        end
+
+        -- Cleanup destroyed trees
+        for tree, label in pairs(treeToHPLabel) do
+            if not tree or not tree.Parent then
+                if label and label.Parent then label.Parent:Destroy() end
+                treeToHPLabel[tree] = nil
+            end
+        end
+    end
+end)
+
+-----------------------------
+-- TREE RANGE CIRCLE UPDATE LOOP
+-----------------------------
+task.spawn(function()
+    while task.wait(0.1) do
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then continue end
+
+        if _G.Settings.Main["ShowTreeRange"] then
+            local radius = _G.Settings.Main["AutoCutTreeRange"]
+            updateTreeCircle(player.Character.HumanoidRootPart.Position, radius)
+        else
+            for _, p in ipairs(treeRingParts) do
+                p.Position = Vector3.new(0, -99999, 0)
+            end
+        end
+    end
+end)
+
 Window:Divider()
 
 local MiscTab = Window:Tab({
