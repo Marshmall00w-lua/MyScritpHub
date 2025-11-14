@@ -69,7 +69,7 @@ local function GradientText(text, color1, color2)
 end
 
 local Window = WindUI:CreateWindow({
-    Title = "RyZen Hub,
+    Title = "RyZen Hub",
     Icon = "rbxassetid://84501312005643",
     IconThemed = "true",
     Author = "By @mallo",
@@ -100,7 +100,7 @@ Window:Tag({
 Window:SetIconSize(50) -- default is 20
 
 Window:EditOpenButton({
-    Title = "RyZen Hub,
+    Title = "RyZen Hub",
     Icon = "rbxassetid://84501312005643",
     CornerRadius = UDim.new(0,16),
     StrokeThickness = 2,
