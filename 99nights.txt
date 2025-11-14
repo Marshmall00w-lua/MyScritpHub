@@ -920,8 +920,11 @@ BringTab:Button({
         elseif BringTarget == "Workbench" then
             targetPos = Vector3.new(20.9532776, 3.18912888, -5.23712301)
         elseif BringTarget == "Campfire" then
-            targetPos = Vector3.new(4.95910645e-05, 2.5, -7.62939453e-06)
-        end
+    local offset = Vector3.new(0, 5, 0) -- 5 studs above the campfire
+    local campfirePos = Vector3.new(0, 1.5, 0) -- original campfire position from your code
+    return CFrame.new(campfirePos + offset)
+end
+
 
         if not targetPos then
             warn("⚠️ Target not found")
@@ -1626,6 +1629,7 @@ local Toggle = Section:Toggle({
 
 local Section = AutoTab:Section({ 
     Title = "Cut Trees",
+    Icon = "axe", 
 })
 
 -----------------------------
