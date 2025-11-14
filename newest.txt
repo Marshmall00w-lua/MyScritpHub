@@ -231,7 +231,7 @@ SupportedGamesTab:Button({
     end
 })
 
-local BringTab = Window:Tab({
+local QuestTab = Window:Tab({
     Title = "Bring Items",
     Icon = "package",
 })
