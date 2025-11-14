@@ -236,7 +236,7 @@ local BringTab = Window:Tab({
     Icon = "package",
 })
 
-local Section = BringTab:Section({ 
+local Section = QuestTab:Section({ 
     Title = "Settings",
     Icon = "cog",
 })
